@@ -65,3 +65,10 @@ spi_instance_id=pds_trc_public_cn-xpz4wo1t701
 path_type/mode=StandardMode
 data_hash_name=sha1
 ```
+## 9. Fresh-object convergence caveats (P5 observations)
+
+- Root `file/list` is also eventual-consistent for just-created objects (sub-second to
+  a few seconds), not just `file/search`. Any "existence check" must be treated as
+  racy and combined with `file/get` + local catalog state.
+- Concurrent creation of the same directory name on one account can race the index;
+  proper backends should detect duplicates and fail closed rather than guess.

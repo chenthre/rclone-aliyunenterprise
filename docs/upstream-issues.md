@@ -21,7 +21,14 @@ never patch rclone inside the backend.**
 - **Data safety**: both conflicting versions were preserved on both ends
   (each version existed locally and was uploaded to the remote; only the
   transfer of one renamed copy was aborted). No data loss.
-- **Attribution status**: **PENDING** (P5.4).
+- **Attribution status**: **RESOLVED — BACKEND CONTRACT VIOLATION (fixed)**.
+  The PDS `move`/`copy` responses are metadata-sparse; the backend returned that
+  sparse data as the moved Object's metadata (missing size/hash/name), so bisync
+  could not obtain `conflict2`'s source info. Fix: `Move`/`Copy` refresh via
+  `file/get`. Verified: the full double-modified conflict scenario now completes
+  with `Bisync successful`, conflict1/conflict2 preserved on both sides, no
+  internal error, no data loss. Local↔local never reproduced the error because a
+  filesystem Move returns complete metadata.
 - **Reproducer plan (experiment A — local↔local, no backend involved)**:
   1. `mkdir pair-a pair-b; rclone bisync pair-a pair-b <flags> --resync --create-empty-src-dirs`
   2. write `f` on both sides with different content

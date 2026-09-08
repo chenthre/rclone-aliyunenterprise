@@ -293,43 +293,41 @@ func (c *Client) Complete(ctx context.Context, fileID, uploadID, name, parentFil
 }
 
 // Move moves/renames an object; returns the new metadata.
+// Move moves/renames an object; returns the new metadata.
+// The PDS move response is metadata-poor (file_id/file_name/updated_at only),
+// so always refresh via file/get for a complete FileMeta.
 func (c *Client) Move(ctx context.Context, fileID, toParentFileID, checkNameMode string) (*FileMeta, error) {
 	body := map[string]interface{}{
-		"drive_id":         c.driveID,
-		"file_id":          fileID,
+		"drive_id":          c.driveID,
+		"file_id":           fileID,
 		"to_parent_file_id": toParentFileID,
-		"check_name_mode":  checkNameMode,
+		"check_name_mode":   checkNameMode,
 	}
-	d, err := c.postJSON(ctx, "/v2/file/move", body)
-	if err != nil {
+	if _, err := c.postJSON(ctx, "/v2/file/move", body); err != nil {
 		return nil, err
 	}
-	meta := metaFromMap(d)
-	if meta.FileID == "" {
-		meta.FileID = fileID
-		meta.ParentFileID = toParentFileID
-	}
-	return meta, nil
+	return c.GetFile(ctx, fileID)
 }
 
 // Copy duplicates an object into toParent; returns new metadata.
+// Copy duplicates an object into toParent; returns new metadata.
+// Refresh via file/get for a complete FileMeta (the copy response is sparse).
 func (c *Client) Copy(ctx context.Context, fileID, toParentFileID, checkNameMode string) (*FileMeta, error) {
 	body := map[string]interface{}{
-		"drive_id":         c.driveID,
-		"file_id":          fileID,
+		"drive_id":          c.driveID,
+		"file_id":           fileID,
 		"to_parent_file_id": toParentFileID,
-		"check_name_mode":  checkNameMode,
+		"check_name_mode":   checkNameMode,
 	}
 	d, err := c.postJSON(ctx, "/v2/file/copy", body)
 	if err != nil {
 		return nil, err
 	}
-	meta := metaFromMap(d)
-	if meta.FileID == "" {
-		meta.FileID = fileID
-		meta.ParentFileID = toParentFileID
+	newID := strVal(d["file_id"])
+	if newID == "" {
+		newID = fileID
 	}
-	return meta, nil
+	return c.GetFile(ctx, newID)
 }
 
 // Update renames or updates metadata of a file.

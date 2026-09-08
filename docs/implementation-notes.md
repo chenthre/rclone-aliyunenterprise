@@ -77,3 +77,21 @@ and classified: 401/403 → permission, 404 → not found, 429 → rate limited,
 - rclone internals (bisync baselines, locks, conflict engine) — upstream.
 - Any app facade / SyncService / Android code — consumers only.
 - Workarounds that alter rclone's own semantics to hide provider quirks.
+## 8. P5 corrections & new facts (2026-09-08)
+
+- **The drive-root `file/list` is eventual-consistent too.** Live verification
+  shows freshly created objects can be briefly missing from the root listing.
+  `childrenOf` therefore runs the *full* list → search → get-verify → catalog
+  reconcile path for every parent, including root (no more root special-case).
+- **Concurrent duplicate-directory creation.** bisync may create two Fs
+  instances for the same remote; during the provider convergence window both can
+  create the same-named directory (`check_name_mode=refuse` cannot see the
+  other). The backend therefore fails closed on multiple same-named children
+  (`ErrConsistency`) instead of picking one arbitrarily.
+- **Move/Copy must refresh metadata via `file/get`.** The PDS move/copy
+  responses are sparse (file_id/file_name/updated_at only). Returning them as
+  the Object metadata broke bisync conflict handling (`missing info for
+  "...conflict2"` — a backend contract violation, since fixed).
+- **Catalog is schema v2 with identity binding** (provider/domain/drive/root),
+  atomic+fsync writes with a `.bak`, corruption detection, and wrong-drive
+  rejection — see catalog.go and its unit tests.

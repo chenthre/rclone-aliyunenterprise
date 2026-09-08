@@ -152,6 +152,13 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 		opt:    *opt,
 		remote: remote,
 	}
+
+	// Bind the catalog to this provider space; a wrong/corrupt catalog is
+	// fatal (fail closed) rather than silently mis-reconciling.
+	if err := catalog.VerifyIdentity("aliyunenterprise", opt.DomainID, opt.DriveID, f.root); err != nil {
+		return nil, err
+	}
+
 	f.features = (&fs.Features{
 		CanHaveEmptyDirectories: true,
 	}).Fill(ctx, f)
@@ -206,9 +213,15 @@ func (f *Fs) join(remote string) string {
 // ---------------------------------------------------------------- dir ops
 
 // Mkdir creates the directory dir (rclone "." means the Fs root).
+// When dir is the Fs root and the Fs maps to a real provider path, the
+// provider directory must be created (bisync relies on Mkdir being idempotent).
 func (f *Fs) Mkdir(ctx context.Context, dir string) error {
 	if dir == "" || dir == "." {
-		return nil // the drive root always exists
+		if f.root == "" {
+			return nil // the drive root always exists
+		}
+		_, err := f.remote.ensureDirPath(ctx, f.root)
+		return err
 	}
 	_, err := f.remote.ensureDirPath(ctx, f.join(dir))
 	return err

@@ -2,6 +2,7 @@ package aliyunenterprise
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,9 @@ func (r *RemoteFs) ensureDirPath(ctx context.Context, relPath string) (string, e
 				return "", err
 			}
 			id = m.FileID
+			// make the new folder immediately visible to the in-process
+			// catalog so later listings do not depend on search convergence
+			r.catalog.Keep(r.opt.DriveID, parentID, *m)
 		}
 		r.paths.set(cur, id)
 		parentID = id
@@ -112,17 +116,30 @@ func (r *RemoteFs) resolveDirID(ctx context.Context, relPath string) (string, er
 }
 
 // resolveChildDir finds a folder named name inside parentID via listing.
+// Multiple directories with the same name are a consistency violation: fail
+// closed instead of picking an arbitrary one (observed with leftover dirs
+// after move-to-trash auto_rename collisions).
 func (r *RemoteFs) resolveChildDir(ctx context.Context, parentID, name string) (string, error) {
 	children, err := r.childrenOf(ctx, parentID)
 	if err != nil {
 		return "", err
 	}
+	var found string
+	count := 0
 	for _, m := range children {
 		if m.isDir() && m.Name == name {
-			return m.FileID, nil
+			found = m.FileID
+			count++
 		}
 	}
-	return "", ErrNotFound
+	switch count {
+	case 0:
+		return "", ErrNotFound
+	case 1:
+		return found, nil
+	default:
+		return "", fmt.Errorf("%w: %d directories named %q under parent %s", ErrConsistency, count, name, parentID)
+	}
 }
 
 // statByPath returns the metadata of the object at relPath ("" → root dir).
@@ -140,21 +157,36 @@ func (r *RemoteFs) statByPath(ctx context.Context, relPath string) (*FileMeta, e
 	if err != nil {
 		return nil, err
 	}
-	for _, m := range children {
+	var found *FileMeta
+	count := 0
+	for i := range children {
+		m := children[i]
 		if m.Name == leaf {
+			count++
 			if m.Type == "" {
 				m.Type = "file"
 			}
-			return &m, nil
+			found = &m
 		}
 	}
-	return nil, ErrNotFound
+	switch count {
+	case 0:
+		return nil, ErrNotFound
+	case 1:
+		return found, nil
+	default:
+		return nil, fmt.Errorf("%w: %d objects named %q under parent %s", ErrConsistency, count, leaf, parentID)
+	}
 }
 
 // childrenOf is the merged, verified child enumeration for parentID.
 // Implements guide §7.2-7.4: list → search fallback → catalog reconcile.
+//
+// All parents go through the same path (including the drive root): the native
+// file/list is eventual-consistent too (verified live), so relying on it alone
+// would re-create or misreport objects during the short convergence window.
 func (r *RemoteFs) childrenOf(ctx context.Context, parentID string) ([]FileMeta, error) {
-	// 1) native list first (authoritative when non-empty / root)
+	// 1) native list first (authoritative when non-empty)
 	var items []FileMeta
 	listed, err := r.client.ListAll(ctx, parentID)
 	if err != nil {
@@ -162,8 +194,8 @@ func (r *RemoteFs) childrenOf(ctx context.Context, parentID string) ([]FileMeta,
 	}
 	items = listed
 
-	// 2) subdir empty → search fallback (with retries)
-	if parentID != "root" && len(items) == 0 {
+	// 2) empty list → search fallback (with retries)
+	if len(items) == 0 {
 		fs.Debugf(nil, "aliyunenterprise: native list empty for parent %s -> search fallback", parentID)
 		searched, err := r.searchWithRetry(ctx, parentID)
 		if err != nil {

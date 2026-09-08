@@ -112,3 +112,11 @@ export ALIYUN_ENTERPRISE_DOMAIN_ID=bj37789  ALIYUN_ENTERPRISE_DRIVE_ID=101
   --compare size,checksum --create-empty-src-dirs --resilient --recover \
   --max-delete 20 --conflict-resolve none --conflict-loser num --resync --workdir /tmp/bisync-work
 ```
+## 9. Post-P5 re-verification (2026-09-08, fixed backend)
+
+- **Conflict scenario now completes cleanly**: double-modified file with
+  `--conflict-resolve none --conflict-loser num` → `Bisync successful`; both
+  versions retained (conflict1 + conflict2 on both ends); no `internal error`.
+  Root cause was backend Move metadata (fixed, see docs/upstream-issues.md).
+- Live integration smoke (`go test -tags integration`) passes against the real
+  enterprise space: Mkdir/Put/List/Open/Hash/Overwrite/Remove/NotFound.
