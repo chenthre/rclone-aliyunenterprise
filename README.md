@@ -1,0 +1,150 @@
+# rclone-aliyunenterprise
+
+**rclone backend for Aliyun Drive Enterprise (PDS), accessed through the enterprise API Key.**
+
+This repository provides an out-of-tree [rclone] backend (`aliyunenterprise`) that wraps the
+Aliyun Drive Enterprise REST data plane into the standard rclone `fs.Fs`/`Object` contract,
+so that any rclone user (CLI, scripts, bisync, librclone, future apps) can use an
+Aliyun Drive Enterprise space as a normal remote.
+
+```text
+any rclone consumer (CLI / bisync / librclone / app)
+            │
+            ▼
+          rclone
+            │
+    fs.Fs / Object contract
+            │
+            ▼
+   aliyunenterprise backend (this repo)
+            │
+            ▼
+  Aliyun Drive Enterprise REST (api_key)
+```
+
+> This is a **rclone backend**, not an app. It does not implement sync algorithms,
+> conflict resolution, or any application facade. Those belong to rclone and to
+> whichever consumer uses this remote.
+
+---
+
+## 1. Support matrix
+
+| Item | State |
+|---|---|
+| Service | 阿里云盘企业版 (Aliyun Drive Enterprise/EDM) — **not** PDS Developer Edition |
+| Auth | Enterprise API Key `uk-...` as `Authorization: Bearer` |
+| Data plane | `https://<domain_id>.api.aliyunfile.com/v2/*` |
+| Requires | `domain_id`, `drive_id`, `api_key` (external config, no hardcoding) |
+| Other environments | RAM AK / OAuth / `*.api.aliyunpds.com` are **not** assumed |
+
+### Capabilities (verified against bj37789, 2026-09)
+
+- Root list, create file/folder, upload (multipart + instant/sha1), download,
+  get metadata, search, overwrite, rename, move, copy;
+- stable `file_id`, SHA-1 `content_hash`;
+- logical delete = move to a provider-private hidden trash (no real DELETE available).
+
+### Provider limitations (handled inside the backend)
+
+1. **Sub-directory `file/list` (and `list_delta`) return empty** for this domain →
+   backend falls back to `file/search(parent_file_id=<id>, recursive=false)` +
+   per-item `file/get` verification (see [implementation notes](docs/implementation-notes.md)).
+2. **Search is eventual-consistent** → the backend guarantees *"search absence ≠ deletion"*
+   via a persistent safety catalog (see [docs/implementation-notes.md](docs/implementation-notes.md)).
+3. **No real delete** → `Remove()` moves to private trash named `_aliyunenterprise_rclone_trash`
+   (hidden from listings; manual GC is a non-goal).
+4. **No SetModTime** → declared honestly (`fs.ErrorCantSetModTime`); use `--compare size,checksum`
+   (bisync) or `--no-update-modtime` (copy).
+5. **Unknown/inconsistent states fail closed** — the backend returns an error rather than a
+   possibly-incomplete listing that could be misread as deletions.
+
+## 2. Build
+
+Requires Go ≥ 1.22 (module pins `github.com/rclone/rclone v1.75.1`).
+
+```bash
+cd rclone-aliyunenterprise
+go build -o rclone-aliyunenterprise ./cmd/rclone-aliyunenterprise
+./rclone-aliyunenterprise version
+./rclone-aliyunenterprise backend list | grep -i aliyun
+```
+
+No rclone source modifications; the binary is a normal rclone embedding this backend.
+
+## 3. Configure
+
+Use rclone config, or environment variables (the backend reads
+`ALIYUN_ENTERPRISE_API_KEY`, `ALIYUN_ENTERPRISE_DOMAIN_ID`, `ALIYUN_ENTERPRISE_DRIVE_ID`
+when config keys are absent):
+
+```bash
+export ALIYUN_ENTERPRISE_API_KEY='uk-...'
+export ALIYUN_ENTERPRISE_DOMAIN_ID='bj37789'
+export ALIYUN_ENTERPRISE_DRIVE_ID='101'
+
+./rclone-aliyunenterprise lsf :aliyunenterprise: -R
+./rclone-aliyunenterprise copy ./vault :aliyunenterprise:backup --checksum
+./rclone-aliyunenterprise bisync ./vault :aliyunenterprise:shared \
+  --compare size,checksum --create-empty-src-dirs --resilient --recover \
+  --max-delete 20 --conflict-resolve none --conflict-loser num --workdir /tmp/bisync-work
+```
+
+**Secrets safety**: the API key is never printed, logged, committed, or embedded in the
+binary. `.env` and any catalog files are git-ignored. Logs redact authorization headers.
+
+## 4. Backend options
+
+| Option | Env var | Description |
+|---|---|---|
+| `api_key` | `ALIYUN_ENTERPRISE_API_KEY` | enterprise API key (`uk-...`) |
+| `domain_id` | `ALIYUN_ENTERPRISE_DOMAIN_ID` | enterprise domain id, e.g. `bj37789` |
+| `drive_id` | `ALIYUN_ENTERPRISE_DRIVE_ID` | drive id inside the domain |
+| `hidden_trash_name` | — | private trash folder name (default `_aliyunenterprise_rclone_trash`) |
+| `catalog_path` | — | local safety catalog path (default `~/.cache/rclone-aliyunenterprise/catalog.json`) |
+| `search_retries` / `search_retry_delay` | — | search fallback retry budget before failing closed |
+
+## 5. Features
+
+Implemented & declared:
+
+- `Fs`: List, NewObject, Put, Mkdir, Rmdir, Purge (logical), Hashes(SHA-1)
+- `Object`: Open, Update, Remove, Size, ModTime, Hash(SHA-1), ID
+- Optional: server-side `Copy`, server-side `Move`
+
+Honestly *not* declared (rclone falls back / refuses):
+
+- `ListR` (search final-consistency is not a reliable recursive-listing contract)
+- `SetModTime` / dir modtime
+- `ChangeNotify`, `PublicLink`, `About`, metadata extensions, real delete
+
+## 6. Testing
+
+- Unit tests: `go test ./...` (catalog, errors, utilities, listing semantics).
+- Integration/contract: see [docs/fstest-results.md](docs/fstest-results.md).
+- Bisync PoC matrix: see [docs/bisync-poc-results.md](docs/bisync-poc-results.md).
+
+## 7. Known upstream rclone issues
+
+- `bisync` conflict rename bug (`missing info for "...conflict2"`) — attribution and
+  minimal reproducer in [docs/upstream-issues.md](docs/upstream-issues.md).
+
+## 8. Repository layout
+
+```text
+.
+├── go.mod                       # pinned github.com/rclone/rclone
+├── backend/aliyunenterprise/    # the backend implementation
+├── cmd/rclone-aliyunenterprise/ # embedding main (builds the rclone binary)
+├── docs/                        # provider quirks, implementation notes, results
+├── testdata/                    # fixture data for integration runs
+└── tools/                       # provider probes (PDS REST reference tools)
+```
+
+## 9. Non-goals
+
+Any specific app; Android/iOS UI or SAF; app SyncService; sync engine algorithms;
+remote distributed locking; custom conflict resolution; real delete/GC; E2EE;
+block-level delta; rclone fork; fixing rclone upstream bugs.
+
+[rclone]: https://rclone.org/

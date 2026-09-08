@@ -1,0 +1,16 @@
+# ---- secrets (never commit) ----
+.env
+
+# ---- build artifacts ----
+rclone-aliyunenterprise/rclone-aliyunenterprise
+rclone-aliyunenterprise/rclone-chenthre
+*.exe
+
+# ---- runtime state ----
+__pycache__/
+*.pyc
+catalog.json
+*.lck
+
+# ---- third-party archives (keep source URL in README) ----
+vendor/
