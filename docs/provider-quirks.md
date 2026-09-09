@@ -96,3 +96,11 @@ rclone encoder — option `encoding`, default `Standard | BackSlash`
 (`/`→`／`, `\`→`＼`, plus control/dot handling). Round-trip is verified by
 the fstest `FsEncoding` suite (all PASS) and works with the rclone CLI path
 semantics (a literal `/` inside a name is not a path separator).
+
+## 12. Delete-then-read convergence (documented gate quirk)
+
+After a logical delete (move to hidden trash), an immediate read of the old
+path may briefly succeed because the provider's move→get convergence is
+eventual (same window as rename/move). The backend guarantees **eventual**
+invisibility, not instantaneousness; command-level gates assert with retries.
+No data-loss implication: the object is in the hidden trash.

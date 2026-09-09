@@ -30,8 +30,16 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   unfriendly characters (P7.1; fstest `FsEncoding` all PASS).
 
 ### Fixed
+- An empty catalog file is fresh state (not corruption); enrichment pinned by
+  tools/gate-runner.sh (command-level regression, runs green 10/10 x 3).
+
+### Fixed
 - catalog identity now includes the name encoding (reopen with a different
   encoding fails closed; legacy catalogs adopt on rebind) — RC2 preflight.
+
+### Fixed
+- An empty catalog file is fresh state (not corruption); enrichment pinned by
+  tools/gate-runner.sh (command-level regression, runs green 10/10 x 3).
 
 ### Fixed
 - Catalog mutations now cross-process safe (flock + reload-then-delta):

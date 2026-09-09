@@ -1,6 +1,7 @@
 package aliyunenterprise
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -238,6 +239,8 @@ func (c *Catalog) save() {
 }
 
 // load reads the catalog; on corruption tries catalog.json.bak.
+// An empty file is treated as fresh (no state) — a freshly created catalog
+// (e.g. by tooling) is not corruption.
 func (c *Catalog) load() {
 	if c.path == "" {
 		return
@@ -249,6 +252,9 @@ func (c *Catalog) load() {
 		}
 		c.loadErr = err
 		return
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
+		return // fresh empty file — not an error
 	}
 	if err := c.parse(data); err == nil {
 		return

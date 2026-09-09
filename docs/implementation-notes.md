@@ -137,3 +137,10 @@ The catalog stores provider-physical names, so the `encoding` option is now
 part of the catalog identity: reopening the same catalog with a different
 encoding fails closed (TestWrongEncodingRejected); legacy catalogs (no
 encoding field) adopt the current encoding on first rebind.
+
+## 13. Empty catalog file = fresh (RC2 preflight)
+
+An empty (zero-byte) catalog file is treated as fresh state, not corruption
+(tooling like `mktemp` creates empty files). Corruption is only a non-empty
+file that fails to parse; partial writes still recover via `.bak`. Pinned by
+the command-level gate (fresh catalog per run).
