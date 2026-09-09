@@ -144,14 +144,37 @@ Honestly *not* declared (rclone falls back / refuses):
 ## 10. Repository layout
 
 ```text
-.
-├── go.mod                       # pinned github.com/rclone/rclone
-├── backend/aliyunenterprise/    # the backend implementation
-├── cmd/rclone-aliyunenterprise/ # embedding main (builds the rclone binary)
-├── docs/                        # provider quirks, implementation notes, results
-├── testdata/                    # fixture data for integration runs
-└── tools/                       # provider probes (PDS REST reference tools)
+rclone-aliyunenterprise/          # Go module: the backend
+  ├── backend/aliyunenterprise/   #   implementation
+  └── cmd/rclone-aliyunenterprise/#   embedding main (builds the rclone binary)
+docs/                            # provider quirks, safety, troubleshooting, results
+tools/                           # gate-runner.sh, release.sh
+tools/legacy/                    # archived PDS REST probes (reference only)
+testdata/                        # bisync fixture data
+.github/                         # CI + issue/PR templates
 ```
+
+## Quick start (new user)
+
+```bash
+git clone git@github.com:chenthre/rclone-aliyunenterprise.git
+cd rclone-aliyunenterprise/rclone-aliyunenterprise
+go build -o rclone-aliyunenterprise ./cmd/rclone-aliyunenterprise
+
+export ALIYUN_ENTERPRISE_API_KEY='uk-...'   # least-privilege key, target drive only
+export ALIYUN_ENTERPRISE_DOMAIN_ID='bj37789'
+export ALIYUN_ENTERPRISE_DRIVE_ID='101'
+
+./rclone-aliyunenterprise lsf :aliyunenterprise: -R            # list
+./rclone-aliyunenterprise copy ~/docs :aliyunenterprise:backup # upload
+./rclone-aliyunenterprise bisync ~/vault :aliyunenterprise:vault \
+  --compare size,checksum --create-empty-src-dirs --resilient --recover \
+  --max-delete 20 --conflict-resolve none --conflict-loser num \
+  --workdir /tmp/bisync-work --resync        # first run only: mkdir the remote first
+```
+
+See [docs/configuration.md](docs/configuration.md), [docs/safety.md](docs/safety.md)
+and [docs/troubleshooting.md](docs/troubleshooting.md) for details.
 
 ## 11. Non-goals
 

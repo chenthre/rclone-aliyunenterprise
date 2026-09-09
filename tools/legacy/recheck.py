@@ -15,7 +15,7 @@ TS = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 DIR_NAME = f"recheck_dir_{TS}"
 FILE_NAME = f"recheck_file_{TS}.txt"
 
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
 assert os.path.exists(env_path), f"缺少 {env_path}"
 KEY = [l.split("=", 1)[1].strip() for l in open(env_path).read().splitlines()
        if l.startswith("API_KEY=")][0]

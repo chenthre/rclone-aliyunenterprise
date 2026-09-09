@@ -241,7 +241,7 @@ def load_api_key(env_file: Path | None = None) -> str:
     if key:
         return key
 
-    path = env_file or Path(__file__).resolve().with_name(".env")
+    path = env_file or Path(__file__).resolve().parent.parent / ".env"
     if not path.exists():
         raise RuntimeError(f"未设置 API_KEY，且找不到 {path}")
     for line in path.read_text(encoding="utf-8").splitlines():

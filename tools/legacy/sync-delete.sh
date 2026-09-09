@@ -9,7 +9,7 @@
 # 密钥从 .env 读取（API_KEY=...），不落盘、不打印。
 set -uo pipefail
 cd "$(dirname "$0")"
-ENV_FILE=".env"
+ENV_FILE="../.env"
 ALIYUN="${ALIYUN:-$HOME/.local/bin/aliyun}"
 DRIVE_ID="${DRIVE_ID:-101}"
 TRASH_NAME="_trash_chenthre_sync"
