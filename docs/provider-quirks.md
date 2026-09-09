@@ -86,3 +86,13 @@ data_hash_name=sha1
   (`fs.ModTimeNotSupported`).
 - **Move/Copy API** accept only a target parent (no target name); renaming is a
   separate `file/update` call. (Fully handled inside the backend.)
+
+## 11. Name encoding (P7.1, resolved)
+
+Aliyun Enterprise rejects `/` and `\` inside a single file/dir name
+(`400 InvalidParameter.Name`). The backend maps rclone logical
+(Standard-encoded) names to provider-safe physical names via the standard
+rclone encoder — option `encoding`, default `Standard | BackSlash`
+(`/`→`／`, `\`→`＼`, plus control/dot handling). Round-trip is verified by
+the fstest `FsEncoding` suite (all PASS) and works with the rclone CLI path
+semantics (a literal `/` inside a name is not a path separator).

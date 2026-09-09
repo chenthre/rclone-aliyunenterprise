@@ -32,7 +32,7 @@ random `rclone-test-*` sub-directory per run.)
 | FsMkdir/FsListRDirEmpty / NotFound | SKIP | ListR not declared |
 | FsMkdir/FsChangeNotify | SKIP | ChangeNotify not declared |
 | FsMkdir/FsEncoding/… | PASS (all) | unicode, spaces, control chars, URL-encoding |
-| FsMkdir/FsEncoding/punctuation | **PROVIDER LIMITATION** | Aliyun rejects file/dir names containing `/` or `\` (`400 InvalidParameter.Name`) |
+| FsMkdir/FsEncoding/punctuation | PASS | via rclone standard encoder (`encoding` option, Standard \| BackSlash) — `/` `\` mapped to provider-safe names with verified round-trip |
 | FsMkdir/FsPutError | PASS | |
 | FsMkdir/FsPutZeroLength | PASS | |
 | FsMkdir/FsPutFiles (all subtests) | PASS | List/NewObject/NewObjectDir/Purge/Copy/Move/RmdirFull/Update/Remove/Range/FromRoot/… |
@@ -70,8 +70,8 @@ random `rclone-test-*` sub-directory per run.)
    (verified: `bytes=81-…` returns full body). Range/Seek are sliced
    client-side; documented in provider-quirks.md.
 
-## Remaining known limitation
+## Remaining known limitations
 
-- `FsEncoding/punctuation`: Aliyun Enterprise file names must not contain `/`
-  or `\` (server 400). No backend workaround is possible or appropriate; the
-  characters are already path separators in rclone semantics.
+- None in the FsMkdir suite. (P7.1: the `encoding` option maps `/` and `\` and
+  other provider-unfriendly characters to safe physical names through the
+  standard rclone encoder; round-trip is verified by the suite.)

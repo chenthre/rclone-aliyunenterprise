@@ -24,6 +24,11 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 - Official fstest contract suite wired and green
   (see `docs/fstest-results.md`; only provider-limitation case remains).
 
+### Added
+- `encoding` option (rclone standard encoder, default `Standard | BackSlash`)
+  with full round-trip for names containing `/`, `\`, and other provider-
+  unfriendly characters (P7.1; fstest `FsEncoding` all PASS).
+
 ### Fixed
 - Move/Copy returned sparse metadata (PDS responses) — refreshed via
   `file/get`; this fixed bisync `missing info for "...conflict2"`.

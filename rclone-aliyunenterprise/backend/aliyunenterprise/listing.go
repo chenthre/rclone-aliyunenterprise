@@ -34,7 +34,7 @@ func (r *RemoteFs) listDir(ctx context.Context, relPath string, f *Fs) (fs.DirEn
 		if relPath == "" && m.isDir() && m.Name == r.opt.HiddenTrashName {
 			continue
 		}
-		childPath := joinSlash(relPath, m.Name)
+		childPath := joinSlash(relPath, r.decName(m.Name))
 		if m.isDir() {
 			entries = append(entries, &adir{f: f, remote: childPath, meta: &m})
 		} else {
@@ -73,20 +73,21 @@ func (r *RemoteFs) newObject(ctx context.Context, relPath string, f *Fs) (fs.Obj
 	}, nil
 }
 
-// putObject uploads src bytes to relPath (relative to the Fs root).
-// Path resolution uses the absolute (drive-relative) path internally, but the
-// returned Object's Remote() is always relative to the Fs root.
+// putObject uploads src bytes to relPath (logical, relative to the Fs root).
+// Path resolution uses the absolute (drive-relative, encoded) path internally,
+// but the returned Object's Remote() is always the logical relative path.
 func (r *RemoteFs) putObject(ctx context.Context, relPath string, in io.Reader, src fs.ObjectInfo, f *Fs) (fs.Object, error) {
-	absPath := f.join(relPath)
-	parentRel := dirOf(absPath)
-	name := baseOf(absPath)
-	if name == "" {
+	absLogical := f.join(relPath)
+	parentRel := dirOf(absLogical)
+	nameLogical := baseOf(absLogical)
+	if nameLogical == "" {
 		return nil, fmt.Errorf("%w: invalid remote path %q", ErrProtocol, relPath)
 	}
 	parentID, err := r.ensureDirPath(ctx, parentRel)
 	if err != nil {
 		return nil, err
 	}
+	providerName := r.encName(nameLogical)
 
 	// spool to temp file to learn size + SHA1 (provider hash), then stream
 	tmp, size, sha1, err := r.spoolAndHash(ctx, in)
@@ -97,13 +98,13 @@ func (r *RemoteFs) putObject(ctx context.Context, relPath string, in io.Reader, 
 
 	// existing object → overwrite in place via file_id
 	var existingID string
-	if meta, err := r.statByPath(ctx, absPath); err == nil && meta.isFile() {
+	if meta, err := r.statByPath(ctx, absLogical); err == nil && meta.isFile() {
 		existingID = meta.FileID
 	} else if err != nil && !isNotFound(err) {
 		return nil, err
 	}
 
-	meta, parts, rapid, err := r.client.CreateFile(ctx, parentID, name, size, sha1, "ignore", existingID)
+	meta, parts, rapid, err := r.client.CreateFile(ctx, parentID, providerName, size, sha1, "ignore", existingID)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func (r *RemoteFs) putObject(ctx context.Context, relPath string, in io.Reader, 
 				return nil, err
 			}
 		}
-		completed, err := r.client.Complete(ctx, meta.FileID, meta.UploadID, name, parentID, completeParts(parts, size))
+		completed, err := r.client.Complete(ctx, meta.FileID, meta.UploadID, providerName, parentID, completeParts(parts, size))
 		if err != nil {
 			return nil, err
 		}

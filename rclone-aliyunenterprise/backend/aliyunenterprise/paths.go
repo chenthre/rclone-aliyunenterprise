@@ -51,16 +51,19 @@ func segments(p string) []string {
 	return out
 }
 
-// ensureDirPath resolves (creating as needed) every folder on relPath and
-// returns its provider file_id. "" → "root" (drive root).
-func (r *RemoteFs) ensureDirPath(ctx context.Context, relPath string) (string, error) {
-	if relPath == "" || relPath == "." {
+// ensureDirPath resolves (creating as needed) every folder on logicalRelPath
+// (a logical, Standard-encoded path relative to the drive root) and returns
+// its provider file_id. "" → "root" (drive root).
+func (r *RemoteFs) ensureDirPath(ctx context.Context, logicalRelPath string) (string, error) {
+	logicalRelPath = strings.Trim(logicalRelPath, "/")
+	if logicalRelPath == "" || logicalRelPath == "." {
 		return "root", nil
 	}
-	if id, ok := r.paths.get(relPath); ok {
+	enc := r.encPath(logicalRelPath)
+	if id, ok := r.paths.get(enc); ok {
 		return id, nil
 	}
-	parts := segments(relPath)
+	parts := segments(enc)
 	parentID := "root"
 	for i, seg := range parts {
 		cur := strings.Join(parts[:i+1], "/")
@@ -90,14 +93,16 @@ func (r *RemoteFs) ensureDirPath(ctx context.Context, relPath string) (string, e
 }
 
 // resolveDirID resolves an existing folder path without creation.
-func (r *RemoteFs) resolveDirID(ctx context.Context, relPath string) (string, error) {
-	if relPath == "" || relPath == "." {
+func (r *RemoteFs) resolveDirID(ctx context.Context, logicalRelPath string) (string, error) {
+	logicalRelPath = strings.Trim(logicalRelPath, "/")
+	if logicalRelPath == "" || logicalRelPath == "." {
 		return "root", nil
 	}
-	if id, ok := r.paths.get(relPath); ok {
+	enc := r.encPath(logicalRelPath)
+	if id, ok := r.paths.get(enc); ok {
 		return id, nil
 	}
-	parts := segments(relPath)
+	parts := segments(enc)
 	parentID := "root"
 	for i, seg := range parts {
 		cur := strings.Join(parts[:i+1], "/")
@@ -142,14 +147,16 @@ func (r *RemoteFs) resolveChildDir(ctx context.Context, parentID, name string) (
 	}
 }
 
-// statByPath returns the metadata of the object at relPath ("" → root dir).
-func (r *RemoteFs) statByPath(ctx context.Context, relPath string) (*FileMeta, error) {
-	if relPath == "" || relPath == "." {
+// statByPath returns the metadata of the object at logicalRelPath ("" → root dir).
+func (r *RemoteFs) statByPath(ctx context.Context, logicalRelPath string) (*FileMeta, error) {
+	if logicalRelPath == "" || logicalRelPath == "." {
 		return &FileMeta{FileID: "root", ParentFileID: "", Name: "", Type: "folder"}, nil
 	}
-	dirPart, leaf := pathSplit(relPath)
+	logicalRelPath = strings.Trim(logicalRelPath, "/")
+	enc := r.encPath(logicalRelPath)
+	dirPart, leaf := pathSplit(enc)
 	dirPart = strings.Trim(dirPart, "/")
-	parentID, err := r.resolveDirID(ctx, dirPart)
+	parentID, err := r.resolveDirID(ctx, r.decPath(dirPart))
 	if err != nil {
 		return nil, err
 	}

@@ -29,6 +29,7 @@ import (
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
 	"github.com/rclone/rclone/fs/hash"
+	"github.com/rclone/rclone/lib/encoder"
 )
 
 // Options for the aliyunenterprise backend.
@@ -55,6 +56,12 @@ type Options struct {
 	// SearchRetries tune the search fallback before failing closed.
 	SearchRetries    int           `config:"search_retries"`
 	SearchRetryDelay time.Duration `config:"search_retry_delay"`
+
+	// Enc defines how logical (Standard-encoded) names map to provider-safe
+	// physical names. Aliyun rejects '/' and '\\' inside names, so the default
+	// adds EncodeBackSlash to the rclone Standard encoding (which already
+	// encodes '/', control chars, dot-leading/trailing names).
+	Enc encoder.MultiEncoder `config:"encoding"`
 }
 
 // Fs represents the Aliyun Drive Enterprise remote.
@@ -110,6 +117,11 @@ func init() {
 			Name:    "search_retry_delay",
 			Help:    "Delay between search retries (seconds)",
 			Default: "2s",
+		}, {
+			Name:       "encoding",
+			Help:       "The encoding for the backend (see rclone docs). The provider rejects '/' and '\\' in names, so the default encodes both.",
+			Default:    encoder.Standard | encoder.EncodeBackSlash,
+			Advanced:   true,
 		}},
 	})
 }
@@ -136,6 +148,10 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 	}
 	if opt.HiddenTrashName == "" {
 		opt.HiddenTrashName = "_aliyunenterprise_rclone_trash"
+	}
+
+	if opt.Enc == 0 {
+		opt.Enc = encoder.Standard | encoder.EncodeBackSlash
 	}
 
 	client, err := NewClient(opt.DomainID, opt.APIKey, opt.DriveID)
@@ -317,12 +333,13 @@ func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (fs.Object,
 	if err != nil {
 		return nil, err
 	}
-	newName := baseOf(absPath)
+	newNameLogical := baseOf(absPath)
+	newName := f.remote.encName(newNameLogical)
 	meta, err := f.remote.client.Copy(ctx, srcO.meta.FileID, parentID, "auto_rename")
 	if err != nil {
 		return nil, err
 	}
-	if newName != "" && newName != srcO.meta.Name {
+	if newNameLogical != "" && newName != srcO.meta.Name {
 		if meta, err = f.remote.client.Update(ctx, meta.FileID, map[string]interface{}{"name": newName}); err != nil {
 			return nil, err
 		}
@@ -353,9 +370,10 @@ func (f *Fs) Move(ctx context.Context, src fs.Object, remote string) (fs.Object,
 	if err != nil {
 		return nil, err
 	}
-	newName := baseOf(remote)
-	absPath := f.join(remote)
-	targetParentID, err := f.remote.ensureDirPath(ctx, dirOf(absPath))
+	newNameLogical := baseOf(remote)
+	newName := f.remote.encName(newNameLogical)
+	absLogical := f.join(remote)
+	targetParentID, err := f.remote.ensureDirPath(ctx, dirOf(absLogical))
 	if err != nil {
 		return nil, err
 	}

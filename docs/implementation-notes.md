@@ -112,3 +112,11 @@ and classified: 401/403 → permission, 404 → not found, 429 → rate limited,
 - Range/Seek reads are sliced client-side (full download + discard) because the
   PDS CDN ignores Range.
 - These fixes are pinned by the fstest suite in docs/fstest-results.md.
+
+## 10. Name encoding (P7.1)
+
+Added the standard rclone `encoding` option (`encoder.MultiEncoder`, default
+`Standard|EncodeBackSlash`). Logical paths from rclone are per-segment encoded
+to provider names (`FromStandardName`) on create/resolve and decoded back
+(`ToStandardName`) on listing. This closes the last fstest gap
+(`FsEncoding/punctuation` now PASS).
