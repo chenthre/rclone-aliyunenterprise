@@ -46,7 +46,7 @@ func TestCatalogConcurrentProcessesNoLostUpdate(t *testing.T) {
 
 	// Parent: reload and check both objects survived.
 	c := NewCatalog(catalogPath)
-	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatalf("identity: %v", err)
 	}
 	snap := c.Snapshot("101", "root")
@@ -97,7 +97,7 @@ func TestCatalogHelperProcess(t *testing.T) {
 	}
 	pid := os.Getenv("GO_HELPER_ID")
 	c := NewCatalog(path)
-	_ = c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "")
+	_ = c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash")
 	for i := 0; i < 5; i++ {
 		c.Keep("101", "root", FileMeta{
 			FileID:       fmt.Sprintf("f_%s_%d", pid, i),
@@ -116,8 +116,8 @@ func TestCatalogIntraProcessConcurrentKeeps(t *testing.T) {
 	path := filepath.Join(dir, "catalog.json")
 	c1 := NewCatalog(path)
 	c2 := NewCatalog(path)
-	_ = c1.VerifyIdentity("aliyunenterprise", "bj37789", "101", "")
-	_ = c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "")
+	_ = c1.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash")
+	_ = c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash")
 
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {

@@ -171,8 +171,10 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 
 	// Bind the catalog to this provider space; a wrong/corrupt catalog is
 	// fatal (fail closed) rather than silently mis-reconciling. remoteRoot is
-	// informational only (sub-mount Fs instances share the drive-level catalog).
-	if err := catalog.VerifyIdentity("aliyunenterprise", opt.DomainID, opt.DriveID, ""); err != nil {
+	// informational only (sub-mount Fs instances share the drive-level catalog);
+	// the name encoding is part of the identity because the catalog stores
+	// provider-physical names.
+	if err := catalog.VerifyIdentity("aliyunenterprise", opt.DomainID, opt.DriveID, "", opt.Enc.String()); err != nil {
 		return nil, err
 	}
 

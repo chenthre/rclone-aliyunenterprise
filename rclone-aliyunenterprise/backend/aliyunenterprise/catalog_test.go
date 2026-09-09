@@ -15,7 +15,7 @@ func tempCatalog(t *testing.T) *Catalog {
 
 func TestCatalogFreshIdentityAndRoundTrip(t *testing.T) {
 	c := tempCatalog(t)
-	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatalf("first bind: %v", err)
 	}
 	c.Keep("101", "root", FileMeta{FileID: "f1", Name: "a.md", ParentFileID: "root"})
@@ -23,7 +23,7 @@ func TestCatalogFreshIdentityAndRoundTrip(t *testing.T) {
 
 	// reload from disk
 	c2 := NewCatalog(c.path)
-	if err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatalf("rebind same identity: %v", err)
 	}
 	snap := c2.Snapshot("101", "root")
@@ -34,14 +34,14 @@ func TestCatalogFreshIdentityAndRoundTrip(t *testing.T) {
 
 func TestWrongDriveRejected(t *testing.T) {
 	c := tempCatalog(t)
-	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatal(err)
 	}
 	c.Keep("101", "root", FileMeta{FileID: "f1", Name: "a.md"})
 	c.Flush()
 
 	c2 := NewCatalog(c.path)
-	err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "999", "")
+	err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "999", "", "Standard,BackSlash")
 	if err == nil {
 		t.Fatal("expected wrong-drive catalog rejection")
 	}
@@ -52,7 +52,7 @@ func TestWrongDriveRejected(t *testing.T) {
 
 func TestCorruptCatalogFailsClosed(t *testing.T) {
 	c := tempCatalog(t)
-	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatal(err)
 	}
 	c.Keep("101", "root", FileMeta{FileID: "f1", Name: "a.md"})
@@ -65,7 +65,7 @@ func TestCorruptCatalogFailsClosed(t *testing.T) {
 	_ = os.Remove(c.path + ".bak")
 
 	c2 := NewCatalog(c.path)
-	err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "")
+	err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash")
 	if err == nil {
 		t.Fatal("expected corrupt-catalog failure")
 	}
@@ -76,7 +76,7 @@ func TestCorruptCatalogFailsClosed(t *testing.T) {
 
 func TestBackupRestoresCorruptPrimary(t *testing.T) {
 	c := tempCatalog(t)
-	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatal(err)
 	}
 	c.Keep("101", "root", FileMeta{FileID: "f1", Name: "a.md"})
@@ -91,7 +91,7 @@ func TestBackupRestoresCorruptPrimary(t *testing.T) {
 	}
 
 	c2 := NewCatalog(c.path)
-	if err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatalf("backup restore failed: %v", err)
 	}
 	snap := c2.Snapshot("101", "root")
@@ -102,7 +102,7 @@ func TestBackupRestoresCorruptPrimary(t *testing.T) {
 
 func TestNoTmpLeftAfterSave(t *testing.T) {
 	c := tempCatalog(t)
-	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatal(err)
 	}
 	c.Keep("101", "root", FileMeta{FileID: "f1", Name: "a.md"})
@@ -114,7 +114,7 @@ func TestNoTmpLeftAfterSave(t *testing.T) {
 
 func TestUnsupportedSchemaVersion(t *testing.T) {
 	c := tempCatalog(t)
-	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err != nil {
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
 		t.Fatal(err)
 	}
 	c.Flush()
@@ -128,7 +128,40 @@ func TestUnsupportedSchemaVersion(t *testing.T) {
 	}
 	_ = os.Remove(c.path + ".bak")
 	c2 := NewCatalog(c.path)
-	if err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", ""); err == nil {
+	if err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err == nil {
 		t.Fatal("expected unsupported schema rejection")
+	}
+}
+
+func TestWrongEncodingRejected(t *testing.T) {
+	c := tempCatalog(t)
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
+		t.Fatal(err)
+	}
+	c.Keep("101", "root", FileMeta{FileID: "f1", Name: "a.md"})
+	c.Flush()
+
+	c2 := NewCatalog(c.path)
+	err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard") // different encoding
+	if err == nil {
+		t.Fatal("expected different-encoding catalog to be rejected")
+	}
+	if !strings.Contains(err.Error(), "encoding") {
+		t.Fatalf("unexpected error text: %v", err)
+	}
+}
+
+func TestLegacyCatalogAdoptsEncoding(t *testing.T) {
+	c := tempCatalog(t)
+	if err := c.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	c.Keep("101", "root", FileMeta{FileID: "f1", Name: "a.md"})
+	c.Flush()
+
+	// legacy file has empty encoding; a new run with an explicit encoding adopts it
+	c2 := NewCatalog(c.path)
+	if err := c2.VerifyIdentity("aliyunenterprise", "bj37789", "101", "", "Standard,BackSlash"); err != nil {
+		t.Fatalf("legacy adoption should succeed: %v", err)
 	}
 }

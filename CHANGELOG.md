@@ -30,6 +30,10 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   unfriendly characters (P7.1; fstest `FsEncoding` all PASS).
 
 ### Fixed
+- catalog identity now includes the name encoding (reopen with a different
+  encoding fails closed; legacy catalogs adopt on rebind) — RC2 preflight.
+
+### Fixed
 - Catalog mutations now cross-process safe (flock + reload-then-delta):
   two independent rclone processes sharing one catalog no longer lose known
   objects (lost update) — P7.2, regression test included.

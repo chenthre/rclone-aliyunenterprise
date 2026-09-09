@@ -38,6 +38,10 @@ type identity struct {
 	DomainID   string `json:"domain_id"`
 	DriveID    string `json:"drive_id"`
 	RemoteRoot string `json:"remote_root"`
+	// Encoding is the canonical string of the backend `encoding` option.
+	// The catalog stores provider-physical names; a different encoding would
+	// decode them wrongly, so it is part of the fail-closed identity.
+	Encoding string `json:"encoding,omitempty"`
 }
 
 type catalogFile struct {
@@ -62,24 +66,31 @@ func NewCatalog(path string) *Catalog {
 	return c
 }
 
-// VerifyIdentity binds the catalog to a provider space. Errors are fatal for
-// the backend (fail closed): using another drive's catalog would corrupt
-// reconciliation.
-func (c *Catalog) VerifyIdentity(provider, domainID, driveID, remoteRoot string) error {
+// VerifyIdentity binds the catalog to a provider space plus the name encoding.
+// Errors are fatal for the backend (fail closed): using another drive's
+// catalog, or a different encoding, would corrupt reconciliation.
+func (c *Catalog) VerifyIdentity(provider, domainID, driveID, remoteRoot, encoding string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.loadErr != nil {
 		return fmt.Errorf("%w: catalog unreadable: %v", ErrCatalog, c.loadErr)
 	}
 	if c.id.Provider == "" && c.id.DomainID == "" && c.id.DriveID == "" {
-		// first bind (fresh or legacy empty catalog)
-		c.id = identity{Provider: provider, DomainID: domainID, DriveID: driveID, RemoteRoot: remoteRoot}
+		// first bind (fresh catalog, or legacy pre-encoding file)
+		c.id = identity{Provider: provider, DomainID: domainID, DriveID: driveID, RemoteRoot: remoteRoot, Encoding: encoding}
 		return nil
 	}
 	if c.id.Provider != provider || c.id.DomainID != domainID || c.id.DriveID != driveID {
 		return fmt.Errorf("%w: catalog belongs to %s/%s/%s, not %s/%s/%s",
 			ErrCatalog, c.id.Provider, c.id.DomainID, c.id.DriveID,
 			provider, domainID, driveID)
+	}
+	if c.id.Encoding != "" && c.id.Encoding != encoding {
+		return fmt.Errorf("%w: catalog uses encoding %q, current is %q (same drive; pick one encoding per catalog)",
+			ErrCatalog, c.id.Encoding, encoding)
+	}
+	if c.id.Encoding == "" {
+		c.id.Encoding = encoding // legacy catalog adopts the current encoding
 	}
 	return nil
 }

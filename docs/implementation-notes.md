@@ -130,3 +130,10 @@ atomic save → unlock. This prevents lost updates when two independent rclone
 processes share one catalog (same domain/drive/root). Crash-safe (OS lock auto
 released). Verified by a real two-OS-process helper test and under -race; the
 same test fails without the lock (lost update).
+
+## 12. Name encoding in catalog identity (RC2 preflight)
+
+The catalog stores provider-physical names, so the `encoding` option is now
+part of the catalog identity: reopening the same catalog with a different
+encoding fails closed (TestWrongEncodingRejected); legacy catalogs (no
+encoding field) adopt the current encoding on first rebind.
