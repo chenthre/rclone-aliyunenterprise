@@ -51,11 +51,15 @@ this folder" state despite Aliyun's eventual-consistent search index.
 
 ```bash
 --compare size,checksum --create-empty-src-dirs --resilient --recover \
---max-delete 80 --conflict-resolve none --conflict-loser num --workdir <local>
+--max-delete <pct> --conflict-resolve none --conflict-loser num --workdir <local>
 
-> `--max-delete N` means **N percent** of files (rclone safety). For small
-> vaults use a high value (e.g. 80) or the sync will abort on ordinary
-> deletions.
+> `--max-delete N` means **N percent** of files and is a safety guard, not a
+> performance knob: it aborts a run when deletions exceed the threshold, which
+> protects against a mis-synced/empty source wiping the destination. Pick the
+> threshold for your own workload: a low value (e.g. 20) is safer but will
+> block ordinary mass deletes; a higher value (e.g. 80) allows larger cleanups
+> at the cost of less protection. Use `--max-delete` together with `--dry-run`
+> whenever in doubt.
 ```
 
 ## If something looks wrong
