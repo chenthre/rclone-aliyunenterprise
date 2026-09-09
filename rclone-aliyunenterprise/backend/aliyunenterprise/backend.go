@@ -118,10 +118,10 @@ func init() {
 			Help:    "Delay between search retries (seconds)",
 			Default: "2s",
 		}, {
-			Name:       "encoding",
-			Help:       "The encoding for the backend (see rclone docs). The provider rejects '/' and '\\' in names, so the default encodes both.",
-			Default:    encoder.Standard | encoder.EncodeBackSlash,
-			Advanced:   true,
+			Name:     "encoding",
+			Help:     "The encoding for the backend (see rclone docs). The provider rejects '/' and '\\' in names, so the default encodes both.",
+			Default:  encoder.Standard | encoder.EncodeBackSlash,
+			Advanced: true,
 		}},
 	})
 }

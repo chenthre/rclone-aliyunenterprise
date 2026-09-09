@@ -120,3 +120,13 @@ Added the standard rclone `encoding` option (`encoder.MultiEncoder`, default
 to provider names (`FromStandardName`) on create/resolve and decoded back
 (`ToStandardName`) on listing. This closes the last fstest gap
 (`FsEncoding/punctuation` now PASS).
+
+## 11. Catalog multi-process safety (P7.2)
+
+All catalog mutations (Update/Keep/Remove) now run under a cross-process
+exclusive lock (`gofrs/flock` on `catalog.json.lock`) with a **reload-then-delta**
+pattern: hold the lock → reload the latest persisted state → apply the change →
+atomic save → unlock. This prevents lost updates when two independent rclone
+processes share one catalog (same domain/drive/root). Crash-safe (OS lock auto
+released). Verified by a real two-OS-process helper test and under -race; the
+same test fails without the lock (lost update).

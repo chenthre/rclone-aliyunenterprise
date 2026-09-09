@@ -30,6 +30,11 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   unfriendly characters (P7.1; fstest `FsEncoding` all PASS).
 
 ### Fixed
+- Catalog mutations now cross-process safe (flock + reload-then-delta):
+  two independent rclone processes sharing one catalog no longer lose known
+  objects (lost update) — P7.2, regression test included.
+
+### Security
 - Move/Copy returned sparse metadata (PDS responses) — refreshed via
   `file/get`; this fixed bisync `missing info for "...conflict2"`.
 - `NewCatalog` never loaded the persisted file (process restart lost state).

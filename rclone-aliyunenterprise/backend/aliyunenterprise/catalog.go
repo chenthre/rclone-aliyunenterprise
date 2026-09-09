@@ -1,12 +1,16 @@
 package aliyunenterprise
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
+
+	"github.com/gofrs/flock"
 )
 
 // Catalog is a persistent local snapshot of provider directory listings.
@@ -97,53 +101,100 @@ func (c *Catalog) Snapshot(driveID, parentFileID string) []FileMeta {
 	return cp
 }
 
-// Update replaces the snapshot for parentFileID.
+// Update replaces the snapshot for parentFileID (locked, read-modify-write).
 func (c *Catalog) Update(driveID, parentFileID string, items []FileMeta) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	cp := make([]FileMeta, len(items))
-	copy(cp, items)
-	c.dirs[c.key(driveID, parentFileID)] = cp
-	c.saveLocked()
+	_ = c.withLock(func() {
+		cp := make([]FileMeta, len(items))
+		copy(cp, items)
+		c.dirs[c.key(driveID, parentFileID)] = cp
+	})
 }
 
-// Keep rotates a single known object into the snapshot (merging by file_id).
+// Keep rotates a single known object into the snapshot (merging by file_id),
+// locked across processes to avoid lost updates.
 func (c *Catalog) Keep(driveID, parentFileID string, m FileMeta) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	k := c.key(driveID, parentFileID)
-	list := c.dirs[k]
-	for i := range list {
-		if list[i].FileID == m.FileID {
-			list[i] = m
-			c.saveLocked()
-			return
+	_ = c.withLock(func() {
+		k := c.key(driveID, parentFileID)
+		list := c.dirs[k]
+		for i := range list {
+			if list[i].FileID == m.FileID {
+				list[i] = m
+				return
+			}
 		}
-	}
-	list = append(list, m)
-	c.dirs[k] = list
-	c.saveLocked()
+		c.dirs[k] = append(list, m)
+	})
 }
 
-// Remove drops an object (authoritative disappearance) from the snapshot.
+// Remove drops an object (authoritative disappearance) from the snapshot,
+// locked across processes.
 func (c *Catalog) Remove(driveID, parentFileID, fileID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	k := c.key(driveID, parentFileID)
-	list := c.dirs[k]
-	n := 0
-	for _, m := range list {
-		if m.FileID != fileID {
-			list[n] = m
-			n++
+	_ = c.withLock(func() {
+		k := c.key(driveID, parentFileID)
+		list := c.dirs[k]
+		n := 0
+		for _, m := range list {
+			if m.FileID != fileID {
+				list[n] = m
+				n++
+			}
 		}
-	}
-	c.dirs[k] = list[:n]
-	c.saveLocked()
+		c.dirs[k] = list[:n]
+	})
 }
 
-// saveLocked writes atomically with fsync + rename, keeping a .bak copy.
-func (c *Catalog) saveLocked() {
+// withLock holds a cross-process exclusive lock on the catalog, reloads the
+// latest persisted state (so deltas apply on top of other processes' writes),
+// runs fn, then saves atomically. This prevents lost updates when two
+// independent rclone processes share one catalog file.
+func (c *Catalog) withLock(fn func()) error {
+	if c.path == "" {
+		fn()
+		return nil
+	}
+	lk := flock.New(c.path + ".lock")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	locked, err := lk.TryLockContext(ctx, 100*time.Millisecond)
+	if err != nil {
+		return fmt.Errorf("%w: catalog lock: %v", ErrCatalog, err)
+	}
+	if !locked {
+		return fmt.Errorf("%w: catalog lock timeout", ErrCatalog)
+	}
+	defer func() { _ = lk.Unlock() }()
+
+	// Reload the latest disk state so our mutation is a proper delta.
+	if err := c.reload(); err != nil {
+		return err
+	}
+	fn()
+	c.save()
+	return nil
+}
+
+// reload re-reads the persisted catalog into the in-memory dirs map.
+func (c *Catalog) reload() error {
+	fresh := map[string][]FileMeta{}
+	c.dirs = fresh
+	c.loadErr = nil
+	c.load()
+	if c.loadErr != nil {
+		return fmt.Errorf("%w: %v", ErrCatalog, c.loadErr)
+	}
+	return nil
+}
+
+// save writes atomically with fsync + rename, keeping a .bak copy.
+// The caller must hold the cross-process lock (withLock) or the in-process
+// mutex.
+func (c *Catalog) save() {
 	if c.path == "" {
 		return
 	}
@@ -167,7 +218,7 @@ func (c *Catalog) saveLocked() {
 		return
 	}
 	// keep previous good version as .bak, then rename (atomic publish)
-	if prev, err := os.ReadFile(c.path); err == nil && !errors.Is(err, os.ErrNotExist) && len(prev) > 0 {
+	if prev, err := os.ReadFile(c.path); err == nil && len(prev) > 0 {
 		_ = os.WriteFile(c.path+".bak", prev, 0o600)
 	}
 	if err := os.Rename(tmp, c.path); err == nil {
@@ -233,5 +284,5 @@ func (c *Catalog) parse(data []byte) error {
 func (c *Catalog) Flush() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.saveLocked()
+	c.save()
 }
