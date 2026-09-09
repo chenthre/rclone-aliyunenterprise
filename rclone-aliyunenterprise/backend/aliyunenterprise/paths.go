@@ -249,9 +249,11 @@ func (r *RemoteFs) childrenOf(ctx context.Context, parentID string) ([]FileMeta,
 			continue
 		}
 		if current.ParentFileID == parentID && current.Status != "uploading" && current.Status != "" {
+			fs.Debugf(nil, "aliyunenterprise: catalog-rescue known id=%s name=%q parent_match=true", known.FileID[:12], known.Name)
 			items = append(items, *current)
 			searched[current.FileID] = true
 		} else if current.ParentFileID != parentID {
+			fs.Debugf(nil, "aliyunenterprise: catalog-rescue known id=%s moved away (parent %s)", known.FileID[:12], current.ParentFileID[:12])
 			// object has moved away from this dir — drop it from the snapshot
 			r.catalog.Remove(r.opt.DriveID, parentID, known.FileID)
 		}

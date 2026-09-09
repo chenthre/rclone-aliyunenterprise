@@ -72,3 +72,17 @@ data_hash_name=sha1
   racy and combined with `file/get` + local catalog state.
 - Concurrent creation of the same directory name on one account can race the index;
   proper backends should detect duplicates and fail closed rather than guess.
+
+## 10. P6.1 contract-test discoveries (2026-09-09, live fstest run)
+
+- **File/dir names** must not contain `/` or `\` (server `400 InvalidParameter.Name:
+  should not contain \/`). Other punctuation, spaces, unicode, control chars,
+  and URL-encoding are accepted.
+- **Range reads**: the CDN download endpoint ignores `Range` headers (returns
+  the full body even for `bytes=81-100000`); backends must slice client-side.
+- **Same-directory server-side copy** returns `403 ForbiddenNoPermission.File`;
+  copying to another directory works.
+- **ModTime**: `updated_at` is read-only; `SetModTime` is unsupported
+  (`fs.ModTimeNotSupported`).
+- **Move/Copy API** accept only a target parent (no target name); renaming is a
+  separate `file/update` call. (Fully handled inside the backend.)

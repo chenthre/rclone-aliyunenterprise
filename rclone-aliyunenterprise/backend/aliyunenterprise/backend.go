@@ -193,7 +193,10 @@ func (f *Fs) Root() string { return f.root }
 func (f *Fs) String() string { return fmt.Sprintf("AliyunEnterprise root '%s'", f.root) }
 
 // Precision returns the modulus of modification times (ms).
-func (f *Fs) Precision() time.Duration { return time.Second }
+// The provider cannot store client-provided modification times, so we declare
+// modtimes unsupported (rclone standard: fs.ModTimeNotSupported). Consumers
+// should compare size+checksum, not mtime.
+func (f *Fs) Precision() time.Duration { return fs.ModTimeNotSupported }
 
 // Features returns the optional feature flags.
 func (f *Fs) Features() *fs.Features { return f.features }
@@ -208,6 +211,18 @@ func (f *Fs) join(remote string) string {
 		return strings.Trim(remote, "/")
 	}
 	return strings.Trim(f.root+"/"+strings.Trim(remote, "/"), "/")
+}
+
+// rootRel denormalizes an (possibly absolute) remote back to a path relative
+// to the Fs root, matching the List() convention.
+func (f *Fs) rootRel(remote string) string {
+	r := strings.Trim(remote, "/")
+	if f.root != "" {
+		if p, ok := strings.CutPrefix(r, f.root+"/"); ok {
+			return p
+		}
+	}
+	return r
 }
 
 // ---------------------------------------------------------------- dir ops
@@ -240,12 +255,15 @@ func (f *Fs) Rmdir(ctx context.Context, dir string) error {
 
 // NewObject creates / fetches the Object for path (may not exist yet).
 func (f *Fs) NewObject(ctx context.Context, remote string) (fs.Object, error) {
-	return f.remote.newObject(ctx, f.join(remote), f)
+	t := f.rootRel(remote)
+	fs.Debugf(nil, "aliyunenterprise: NewObject(remote=%q) -> rel=%q f.root=%q", remote, t, f.root)
+	return f.remote.newObject(ctx, t, f)
 }
 
 // Put transfers in to the remote path (creating or overwriting).
+// src.Remote() is relative to the Fs root per the rclone contract.
 func (f *Fs) Put(ctx context.Context, in io.Reader, src fs.ObjectInfo, options ...fs.OpenOption) (fs.Object, error) {
-	o, err := f.remote.putObject(ctx, f.join(src.Remote()), in, src, f)
+	o, err := f.remote.putObject(ctx, src.Remote(), in, src, f)
 	if err != nil {
 		return nil, err
 	}
@@ -275,52 +293,104 @@ func (f *Fs) Purge(ctx context.Context, dir string) error {
 }
 
 // Copy implements server-side copy (verified provider capability).
+// remote is relative to the Fs root per the rclone contract. PDS copy takes
+// only a target parent, so a target rename is applied afterwards.
 func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (fs.Object, error) {
 	srcO, ok := src.(*Object)
 	if !ok {
 		return nil, fs.ErrorCantCopy
 	}
-	full := f.join(remote)
-	parentID, err := f.remote.ensureDirPath(ctx, dirOf(full))
+	fs.Debugf(src, "Copy -> %q (src name=%q parent=%s)", remote, srcO.meta.Name, srcO.meta.ParentFileID[:12])
+	absPath := f.join(remote)
+	// The provider refuses server-side copy into the same parent directory
+	// (verified: 403 ForbiddenNoPermission.File). Fall back to rclone's generic
+	// copy (read + put), which is semantically correct.
+	if dirOf(absPath) == f.join(srcO.parentPath) {
+		fs.Debugf(src, "same-directory copy not supported server-side; falling back to generic copy")
+		return nil, fs.ErrorCantCopy
+	}
+	if dirOf(absPath) != f.join(srcO.parentPath) {
+		fs.Debugf(src, "copy dirs differ: dirOf=%q srcParent=%q (srcO.parentPath=%q)", dirOf(absPath), f.join(srcO.parentPath), srcO.parentPath)
+	}
+	parentID, err := f.remote.ensureDirPath(ctx, dirOf(absPath))
 	if err != nil {
 		return nil, err
 	}
+	newName := baseOf(absPath)
 	meta, err := f.remote.client.Copy(ctx, srcO.meta.FileID, parentID, "auto_rename")
 	if err != nil {
 		return nil, err
+	}
+	if newName != "" && newName != srcO.meta.Name {
+		if meta, err = f.remote.client.Update(ctx, meta.FileID, map[string]interface{}{"name": newName}); err != nil {
+			return nil, err
+		}
 	}
 	f.remote.catalog.Keep(f.remote.opt.DriveID, parentID, *meta)
 	return &Object{
 		fs:         f,
 		meta:       meta,
-		remote:     full,
-		parentPath: dirOf(full),
+		remote:     remote,
+		parentPath: dirOf(remote),
 	}, nil
 }
 
 // Move implements server-side move (verified provider capability; also our
-// logical-delete primitive).
+// logical-delete primitive). PDS move takes only a target parent; a target
+// rename is applied afterwards (a same-directory move is a pure rename).
 func (f *Fs) Move(ctx context.Context, src fs.Object, remote string) (fs.Object, error) {
 	srcO, ok := src.(*Object)
 	if !ok {
 		return nil, fs.ErrorCantMove
 	}
-	full := f.join(remote)
-	parentID, err := f.remote.ensureDirPath(ctx, dirOf(full))
+	fs.Debugf(src, "Move -> %q (src name=%q parent=%s remote=%q)", remote, srcO.meta.Name, srcO.meta.ParentFileID[:12], srcO.remote)
+
+	// Decide based on the authoritative provider state, not on possibly stale
+	// Object metadata (rclone may pass an Object whose meta predates earlier
+	// moves/renames).
+	cur, err := f.remote.client.GetFile(ctx, srcO.meta.FileID)
 	if err != nil {
 		return nil, err
 	}
-	meta, err := f.remote.client.Move(ctx, srcO.meta.FileID, parentID, "auto_rename")
+	newName := baseOf(remote)
+	absPath := f.join(remote)
+	targetParentID, err := f.remote.ensureDirPath(ctx, dirOf(absPath))
 	if err != nil {
 		return nil, err
 	}
-	f.remote.catalog.Remove(f.remote.opt.DriveID, srcO.meta.ParentFileID, srcO.meta.FileID)
-	f.remote.catalog.Keep(f.remote.opt.DriveID, parentID, *meta)
+
+	var meta *FileMeta
+	switch {
+	case cur.ParentFileID == targetParentID && newName == cur.Name:
+		// no-op (same path): keep authoritative metadata
+		meta = cur
+	case cur.ParentFileID == targetParentID:
+		// pure rename in the same directory
+		m, err := f.remote.client.Update(ctx, cur.FileID, map[string]interface{}{"name": newName})
+		if err != nil {
+			return nil, err
+		}
+		meta = m
+	default:
+		m, err := f.remote.client.Move(ctx, cur.FileID, targetParentID, "auto_rename")
+		if err != nil {
+			return nil, err
+		}
+		if newName != "" && newName != cur.Name {
+			if m, err = f.remote.client.Update(ctx, m.FileID, map[string]interface{}{"name": newName}); err != nil {
+				return nil, err
+			}
+		}
+		meta = m
+	}
+
+	f.remote.catalog.Remove(f.remote.opt.DriveID, cur.ParentFileID, cur.FileID)
+	f.remote.catalog.Keep(f.remote.opt.DriveID, meta.ParentFileID, *meta)
 	f.remote.paths = newPathCache()
 	return &Object{
 		fs:         f,
 		meta:       meta,
-		remote:     full,
-		parentPath: dirOf(full),
+		remote:     remote,
+		parentPath: dirOf(remote),
 	}, nil
 }

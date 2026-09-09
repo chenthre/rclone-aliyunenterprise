@@ -95,3 +95,20 @@ and classified: 401/403 → permission, 404 → not found, 429 → rate limited,
 - **Catalog is schema v2 with identity binding** (provider/domain/drive/root),
   atomic+fsync writes with a `.bak`, corruption detection, and wrong-drive
   rejection — see catalog.go and its unit tests.
+
+## 9. P6.1/P6.2 contract fixes (2026-09-09, live fstest)
+
+- List of missing dir → `fs.ErrorDirNotFound` (contract); bisync cold start
+  requires pre-creating the remote path (see docs/safety.md).
+- Object paths are always relative to the Fs root; drive-absolute paths are
+  used only internally (backing fixes for NewObject/Move/Copy/Update).
+- Move decisions come from an authoritative `file/get`; same-dir move = rename
+  via `file/update`; cross-dir move + optional rename via `file/update`.
+- Same-dir Copy returns `fs.ErrorCantCopy` (provider 403) — rclone falls back
+  to generic copy.
+- Hash() returns the locally verified SHA-1 of the uploaded bytes.
+- `Precision()` returns `fs.ModTimeNotSupported` — consumers should use
+  `--compare size,checksum`.
+- Range/Seek reads are sliced client-side (full download + discard) because the
+  PDS CDN ignores Range.
+- These fixes are pinned by the fstest suite in docs/fstest-results.md.

@@ -10,14 +10,15 @@ import (
 )
 
 // listDir implements Fs.List. relPath is relative to the Fs root ("" == root).
-// A missing directory is reported as an empty listing (standard object-store
-// semantics), which lets bisync cold-start into a new remote path.
+// A missing directory is reported as fs.ErrorDirNotFound, per the rclone
+// Fs contract. (Consumers that need to create it first call Mkdir; bisync
+// cold-start requires a pre-created remote path — see docs/safety.md.)
 func (r *RemoteFs) listDir(ctx context.Context, relPath string, f *Fs) (fs.DirEntries, error) {
 	absPath := f.join(relPath)
 	parentID, err := r.resolveDirID(ctx, absPath)
 	if err != nil {
 		if isNotFound(err) {
-			return fs.DirEntries{}, nil
+			return nil, fs.ErrorDirNotFound
 		}
 		return nil, err
 	}
@@ -49,15 +50,20 @@ func (r *RemoteFs) listDir(ctx context.Context, relPath string, f *Fs) (fs.DirEn
 	return entries, nil
 }
 
-// newObject fetches the object at relPath (existing or placeholder-for-new).
-// It must return fs.ErrorObjectNotFound when the object does not exist.
+// newObject fetches the object at relPath (relative to the Fs root; may or
+// may not exist yet). It must return fs.ErrorObjectNotFound when the object
+// does not exist, and fs.ErrorIsDir when the path refers to a directory
+// (rclone contract).
 func (r *RemoteFs) newObject(ctx context.Context, relPath string, f *Fs) (fs.Object, error) {
-	m, err := r.statByPath(ctx, relPath)
+	m, err := r.statByPath(ctx, f.join(relPath))
 	if err != nil {
 		if isNotFound(err) {
 			return nil, fs.ErrorObjectNotFound
 		}
 		return nil, err
+	}
+	if m.isDir() {
+		return nil, fs.ErrorIsDir
 	}
 	return &Object{
 		fs:         f,
@@ -67,10 +73,13 @@ func (r *RemoteFs) newObject(ctx context.Context, relPath string, f *Fs) (fs.Obj
 	}, nil
 }
 
-// putObject uploads src bytes to relPath (create or overwrite).
+// putObject uploads src bytes to relPath (relative to the Fs root).
+// Path resolution uses the absolute (drive-relative) path internally, but the
+// returned Object's Remote() is always relative to the Fs root.
 func (r *RemoteFs) putObject(ctx context.Context, relPath string, in io.Reader, src fs.ObjectInfo, f *Fs) (fs.Object, error) {
-	parentRel := dirOf(relPath)
-	name := baseOf(relPath)
+	absPath := f.join(relPath)
+	parentRel := dirOf(absPath)
+	name := baseOf(absPath)
 	if name == "" {
 		return nil, fmt.Errorf("%w: invalid remote path %q", ErrProtocol, relPath)
 	}
@@ -88,7 +97,7 @@ func (r *RemoteFs) putObject(ctx context.Context, relPath string, in io.Reader, 
 
 	// existing object → overwrite in place via file_id
 	var existingID string
-	if meta, err := r.statByPath(ctx, relPath); err == nil && meta.isFile() {
+	if meta, err := r.statByPath(ctx, absPath); err == nil && meta.isFile() {
 		existingID = meta.FileID
 	} else if err != nil && !isNotFound(err) {
 		return nil, err
@@ -123,11 +132,16 @@ func (r *RemoteFs) putObject(ctx context.Context, relPath string, in io.Reader, 
 		meta = completed
 	}
 
+	// The provider response may omit the hash; the locally computed SHA-1 is
+	// authoritative for the bytes just uploaded.
+	if meta.ContentHash == "" {
+		meta.ContentHash = sha1
+	}
 	r.catalog.Keep(r.opt.DriveID, parentID, *meta)
 	return &Object{
 		fs:         f,
 		meta:       meta,
 		remote:     relPath,
-		parentPath: parentRel,
+		parentPath: dirOf(relPath),
 	}, nil
 }
