@@ -1,8 +1,18 @@
 # rclone-aliyunenterprise
 
+> [!IMPORTANT]
+> **This repository is vibe-coded.** It has been developed predominantly with
+> AI assistance and is released primarily as a *proof of concept / utility*
+> rather than a production, peer-reviewed open-source project. It does pass an
+> automated gate — unit + race tests, the official rclone `fstest` contract
+> suite, and a real-provider command-level gate (`tools/gate-runner.sh`, 10/10)
+> — but it has **not** been through full manual code review. Please audit the
+> code and test with non-critical data before relying on it for anything
+> important, and report issues with a sanitized `-vv` log.
+
 **rclone backend for Aliyun Drive Enterprise (PDS), accessed through the enterprise API Key.**
 
-> **Status: Beta (v0.1.0-rc1)** · Pinned rclone v1.75.1 · Community-maintained,
+> **Status: Beta (v0.1.0-rc2)** · Pinned rclone v1.75.1 · Community-maintained,
 > not affiliated with Alibaba Cloud.
 
 This repository provides an out-of-tree [rclone] backend (`aliyunenterprise`) that wraps the
@@ -41,7 +51,7 @@ any rclone consumer (CLI / bisync / librclone / app)
 | Requires | `domain_id`, `drive_id`, `api_key` (external config, no hardcoding) |
 | Other environments | RAM AK / OAuth / `*.api.aliyunpds.com` are **not** assumed |
 
-### Capabilities (verified against bj37789, 2026-09)
+### Capabilities (verified against a real Aliyun Drive Enterprise domain, 2026-09)
 
 - Root list, create file/folder, upload (multipart + instant/sha1), download,
   get metadata, search, overwrite, rename, move, copy;
@@ -83,7 +93,7 @@ when config keys are absent):
 
 ```bash
 export ALIYUN_ENTERPRISE_API_KEY='uk-...'
-export ALIYUN_ENTERPRISE_DOMAIN_ID='bj37789'
+export ALIYUN_ENTERPRISE_DOMAIN_ID="$(grep '^DOMAIN_ID=' .env | cut -d= -f2)"
 export ALIYUN_ENTERPRISE_DRIVE_ID='101'
 
 ./rclone-aliyunenterprise lsf :aliyunenterprise: -R
@@ -101,7 +111,7 @@ binary. `.env` and any catalog files are git-ignored. Logs redact authorization 
 | Option | Env var | Description |
 |---|---|---|
 | `api_key` | `ALIYUN_ENTERPRISE_API_KEY` | enterprise API key (`uk-...`) |
-| `domain_id` | `ALIYUN_ENTERPRISE_DOMAIN_ID` | enterprise domain id, e.g. `bj37789` |
+| `domain_id` | `ALIYUN_ENTERPRISE_DOMAIN_ID` | enterprise domain id (put the real value in `.env`) |
 | `drive_id` | `ALIYUN_ENTERPRISE_DRIVE_ID` | drive id inside the domain |
 | `hidden_trash_name` | — | private trash folder name (default `_aliyunenterprise_rclone_trash`) |
 | `catalog_path` | — | local safety catalog path (default `~/.cache/rclone-aliyunenterprise/catalog.json`) |
@@ -161,9 +171,10 @@ git clone git@github.com:chenthre/rclone-aliyunenterprise.git
 cd rclone-aliyunenterprise/rclone-aliyunenterprise
 go build -o rclone-aliyunenterprise ./cmd/rclone-aliyunenterprise
 
-export ALIYUN_ENTERPRISE_API_KEY='uk-...'   # least-privilege key, target drive only
-export ALIYUN_ENTERPRISE_DOMAIN_ID='bj37789'
-export ALIYUN_ENTERPRISE_DRIVE_ID='101'
+source <(grep -E '^(API_KEY|DOMAIN_ID|DRIVE_ID)=' .env)   # real values live in .env
+export ALIYUN_ENTERPRISE_API_KEY="$API_KEY"                 # least-privilege key
+export ALIYUN_ENTERPRISE_DOMAIN_ID="$DOMAIN_ID"
+export ALIYUN_ENTERPRISE_DRIVE_ID="$DRIVE_ID"'
 
 ./rclone-aliyunenterprise lsf :aliyunenterprise: -R            # list
 ./rclone-aliyunenterprise copy ~/docs :aliyunenterprise:backup # upload
@@ -183,9 +194,3 @@ remote distributed locking; custom conflict resolution; real delete/GC; E2EE;
 block-level delta; rclone fork; fixing rclone upstream bugs.
 
 [rclone]: https://rclone.org/
-## 12. Repository name
-
-The repository is developed as `rclone-aliyunenterprise` (see P6.3 rename);
-the local checkout directory name may differ (a `rclone-aliyunenterprise ->
-notes-sync` symlink is provided on this machine). Remote URL, module path and
-binary name are all `rclone-aliyunenterprise`.

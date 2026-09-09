@@ -5,7 +5,7 @@
 | Option | Env var (rclone convention) | Description |
 |---|---|---|
 | `api_key` | `RCLONE_ALIYUNENTERPRISE_API_KEY` | Aliyun Drive Enterprise API Key, `uk-...` |
-| `domain_id` | `RCLONE_ALIYUNENTERPRISE_DOMAIN_ID` | enterprise domain id, e.g. `bj37789` |
+| `domain_id` | `RCLONE_ALIYUNENTERPRISE_DOMAIN_ID` | enterprise domain id, e.g. `YOUR_DOMAIN_ID` (real value in `.env`, never commit) |
 | `drive_id` | `RCLONE_ALIYUNENTERPRISE_DRIVE_ID` | drive id inside the domain (team space) |
 
 The backend also falls back to bare env vars `ALIYUN_ENTERPRISE_API_KEY`,
@@ -32,7 +32,7 @@ Create a remote of type `aliyunenterprise` and answer:
 
 ```text
 api_key    > uk-...            (obscured input)
-domain_id  > bj37789
+domain_id  > <YOUR_DOMAIN_ID/>  (real value from .env)
 drive_id   > 101
 ```
 
@@ -46,8 +46,8 @@ rclone-aliyunenterprise lsf aliyun: -R
 
 ```bash
 export ALIYUN_ENTERPRISE_API_KEY='uk-...'
-export ALIYUN_ENTERPRISE_DOMAIN_ID='bj37789'
-export ALIYUN_ENTERPRISE_DRIVE_ID='101'
+export ALIYUN_ENTERPRISE_DOMAIN_ID=$(grep '^DOMAIN_ID=' .env | cut -d= -f2)
+export ALIYUN_ENTERPRISE_DRIVE_ID=$(grep '^DRIVE_ID=' .env | cut -d= -f2)
 ./rclone-aliyunenterprise lsf :aliyunenterprise: -R
 ```
 

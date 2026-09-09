@@ -18,6 +18,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 RC="${RC:-./rclone-aliyunenterprise/rclone-aliyunenterprise}"
+# load .env (API_KEY/DOMAIN_ID/DRIVE_ID) when env vars are not set
+if [ -f .env ]; then
+  [ "${ALIYUN_ENTERPRISE_API_KEY:-}" ] ||     ALIYUN_ENTERPRISE_API_KEY="$(grep '^API_KEY=' .env | cut -d= -f2)"
+  [ "${ALIYUN_ENTERPRISE_DOMAIN_ID:-}" ] ||     ALIYUN_ENTERPRISE_DOMAIN_ID="$(grep '^DOMAIN_ID=' .env | cut -d= -f2)"
+  [ "${ALIYUN_ENTERPRISE_DRIVE_ID:-}" ] ||     ALIYUN_ENTERPRISE_DRIVE_ID="$(grep '^DRIVE_ID=' .env | cut -d= -f2)"
+fi
 export RCLONE_ALIYUNENTERPRISE_API_KEY="${ALIYUN_ENTERPRISE_API_KEY:?set ALIYUN_ENTERPRISE_API_KEY}"
 export RCLONE_ALIYUNENTERPRISE_DOMAIN_ID="${ALIYUN_ENTERPRISE_DOMAIN_ID:?}"
 export RCLONE_ALIYUNENTERPRISE_DRIVE_ID="${ALIYUN_ENTERPRISE_DRIVE_ID:?}"
