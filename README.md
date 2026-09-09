@@ -148,3 +148,9 @@ remote distributed locking; custom conflict resolution; real delete/GC; E2EE;
 block-level delta; rclone fork; fixing rclone upstream bugs.
 
 [rclone]: https://rclone.org/
+## 8. Repository name
+
+The repository is developed as `rclone-aliyunenterprise` (see P6.3 rename);
+the local checkout directory name may differ (a `rclone-aliyunenterprise ->
+notes-sync` symlink is provided on this machine). Remote URL, module path and
+binary name are all `rclone-aliyunenterprise`.
