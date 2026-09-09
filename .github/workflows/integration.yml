@@ -53,4 +53,7 @@ jobs:
           RCLONE_ALIYUNENTERPRISE_CATALOG_PATH: /tmp/ci-catalog/catalog.json
           RCLONE_CONFIG: /tmp/ci-catalog/rclone.conf
         run: |
-          go test -tags integration -v -run 'TestContract/FsMkdir' -timeout 40m -args -verbose ./backend/aliyunenterprise/
+          # NB: the package path must come BEFORE -args; everything after
+          # -args is passed to the test binary itself.
+          go test -tags integration -v -run 'TestContract/FsMkdir' -timeout 40m \
+            ./backend/aliyunenterprise/ -args -verbose
