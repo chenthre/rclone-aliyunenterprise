@@ -7,14 +7,14 @@ import (
 
 // typed provider errors, used for retry / fail-closed decisions
 var (
-	ErrAuth       = errors.New("aliyunenterprise: authentication error")
-	ErrPermission = errors.New("aliyunenterprise: permission error")
-	ErrNotFound   = errors.New("aliyunenterprise: not found")
+	ErrAuth        = errors.New("aliyunenterprise: authentication error")
+	ErrPermission  = errors.New("aliyunenterprise: permission error")
+	ErrNotFound    = errors.New("aliyunenterprise: not found")
 	ErrRateLimited = errors.New("aliyunenterprise: rate limited")
-	ErrTransient  = errors.New("aliyunenterprise: transient server error")
-	ErrProtocol   = errors.New("aliyunenterprise: protocol error")
+	ErrTransient   = errors.New("aliyunenterprise: transient server error")
+	ErrProtocol    = errors.New("aliyunenterprise: protocol error")
 	ErrConsistency = errors.New("aliyunenterprise: consistency check failed")
-	ErrCatalog    = errors.New("aliyunenterprise: local catalog error")
+	ErrCatalog     = errors.New("aliyunenterprise: local catalog error")
 )
 
 // isNotFound reports whether err represents an authoritative 404 (not-found).

@@ -53,13 +53,13 @@ func integrationClient(t *testing.T) *Fs {
 // fakeInfo implements fs.ObjectInfo for Put().
 type fakeInfo struct{ remote string }
 
-func (fi fakeInfo) Remote() string                    { return fi.remote }
-func (fi fakeInfo) String() string                    { return fi.remote }
-func (fi fakeInfo) Size() int64                       { return -1 }
-func (fi fakeInfo) ModTime(context.Context) time.Time { return time.Time{} }
-func (fi fakeInfo) Fs() fs.Info                       { return nil }
+func (fi fakeInfo) Remote() string                                  { return fi.remote }
+func (fi fakeInfo) String() string                                  { return fi.remote }
+func (fi fakeInfo) Size() int64                                     { return -1 }
+func (fi fakeInfo) ModTime(context.Context) time.Time               { return time.Time{} }
+func (fi fakeInfo) Fs() fs.Info                                     { return nil }
 func (fi fakeInfo) Hash(context.Context, hash.Type) (string, error) { return "", nil }
-func (fi fakeInfo) Storable() bool                    { return true }
+func (fi fakeInfo) Storable() bool                                  { return true }
 
 func newFakeInfo(remote string, size int64) fs.ObjectInfo {
 	return &sizedInfo{fakeInfo: fakeInfo{remote: remote}, size: size}

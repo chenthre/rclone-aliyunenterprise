@@ -59,11 +59,11 @@ type Options struct {
 
 // Fs represents the Aliyun Drive Enterprise remote.
 type Fs struct {
-	name     string          // remote name in rclone config
-	root     string          // current root "directory" of the Fs ("" = drive root)
-	opt      Options         // parsed config
-	remote   *RemoteFs       // shared client + state per remote
-	features *fs.Features    // optional features (populated in NewFs)
+	name     string       // remote name in rclone config
+	root     string       // current root "directory" of the Fs ("" = drive root)
+	opt      Options      // parsed config
+	remote   *RemoteFs    // shared client + state per remote
+	features *fs.Features // optional features (populated in NewFs)
 }
 
 // RemoteFs holds client + shared per-remote state (catalog, trash cache).
@@ -154,8 +154,9 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 	}
 
 	// Bind the catalog to this provider space; a wrong/corrupt catalog is
-	// fatal (fail closed) rather than silently mis-reconciling.
-	if err := catalog.VerifyIdentity("aliyunenterprise", opt.DomainID, opt.DriveID, f.root); err != nil {
+	// fatal (fail closed) rather than silently mis-reconciling. remoteRoot is
+	// informational only (sub-mount Fs instances share the drive-level catalog).
+	if err := catalog.VerifyIdentity("aliyunenterprise", opt.DomainID, opt.DriveID, ""); err != nil {
 		return nil, err
 	}
 

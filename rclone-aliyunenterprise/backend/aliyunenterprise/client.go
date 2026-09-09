@@ -109,9 +109,9 @@ func (c *Client) GetFile(ctx context.Context, fileID string) (*FileMeta, error) 
 
 // Page holds one page of a paginated listing.
 type Page struct {
-	Items       []FileMeta
-	NextMarker  string
-	TotalCount  int64
+	Items      []FileMeta
+	NextMarker string
+	TotalCount int64
 }
 
 // listPage calls file/list once.
@@ -136,11 +136,11 @@ func (c *Client) searchPage(ctx context.Context, parentFileID, marker string, li
 	escaped := strings.ReplaceAll(parentFileID, "\\", "\\\\")
 	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
 	body := map[string]interface{}{
-		"drive_id":          c.driveID,
-		"query":             fmt.Sprintf(`parent_file_id = "%s"`, escaped),
-		"recursive":         false,
+		"drive_id":           c.driveID,
+		"query":              fmt.Sprintf(`parent_file_id = "%s"`, escaped),
+		"recursive":          false,
 		"return_total_count": true,
-		"limit":             limit,
+		"limit":              limit,
 	}
 	if marker != "" {
 		body["marker"] = marker
@@ -201,11 +201,11 @@ func (c *Client) paginate(ctx context.Context, page func(marker string) (*Page, 
 // CreateFolder creates a folder; checkNameMode in {refuse, ignore, auto_rename}.
 func (c *Client) CreateFolder(ctx context.Context, parentFileID, name, checkNameMode string) (*FileMeta, error) {
 	d, err := c.postJSON(ctx, "/v2/file/create", map[string]interface{}{
-		"drive_id":         c.driveID,
-		"parent_file_id":   parentFileID,
-		"name":             name,
-		"type":             "folder",
-		"check_name_mode":  checkNameMode,
+		"drive_id":        c.driveID,
+		"parent_file_id":  parentFileID,
+		"name":            name,
+		"type":            "folder",
+		"check_name_mode": checkNameMode,
 	})
 	if err != nil {
 		return nil, err
@@ -402,7 +402,7 @@ func metaFromMap(d map[string]interface{}) *FileMeta {
 		HashName:     strVal(d["content_hash_name"]),
 		Status:       strVal(d["status"]),
 		UploadID:     strVal(d["upload_id"]),
-	CreatedAt:    strVal(d["created_at"]),
+		CreatedAt:    strVal(d["created_at"]),
 		UpdatedAt:    strVal(d["updated_at"]),
 	}
 }

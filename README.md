@@ -2,6 +2,9 @@
 
 **rclone backend for Aliyun Drive Enterprise (PDS), accessed through the enterprise API Key.**
 
+> **Status: Beta (v0.1.0-rc1)** · Pinned rclone v1.75.1 · Community-maintained,
+> not affiliated with Alibaba Cloud.
+
 This repository provides an out-of-tree [rclone] backend (`aliyunenterprise`) that wraps the
 Aliyun Drive Enterprise REST data plane into the standard rclone `fs.Fs`/`Object` contract,
 so that any rclone user (CLI, scripts, bisync, librclone, future apps) can use an
@@ -121,15 +124,24 @@ Honestly *not* declared (rclone falls back / refuses):
 ## 6. Testing
 
 - Unit tests: `go test ./...` (catalog, errors, utilities, listing semantics).
-- Integration/contract: see [docs/fstest-results.md](docs/fstest-results.md).
+- Integration: official rclone `fstest` suite — see [docs/fstest-results.md](docs/fstest-results.md)
+  and `-tags integration` tests.
 - Bisync PoC matrix: see [docs/bisync-poc-results.md](docs/bisync-poc-results.md).
 
-## 7. Known upstream rclone issues
+## 7. Documentation
 
-- `bisync` conflict rename bug (`missing info for "...conflict2"`) — attribution and
-  minimal reproducer in [docs/upstream-issues.md](docs/upstream-issues.md).
+- [Configuration](docs/configuration.md)
+- [Provider quirks](docs/provider-quirks.md)
+- [Safety model](docs/safety.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Current status / remaining work for v0.1.0](docs/fstest-results.md)
 
-## 8. Repository layout
+## 9. Known upstream rclone issues
+
+- `bisync` conflict rename bug (`missing info for "...conflict2"`) — see
+  [docs/upstream-issues.md](docs/upstream-issues.md).
+
+## 10. Repository layout
 
 ```text
 .
@@ -141,14 +153,14 @@ Honestly *not* declared (rclone falls back / refuses):
 └── tools/                       # provider probes (PDS REST reference tools)
 ```
 
-## 9. Non-goals
+## 11. Non-goals
 
 Any specific app; Android/iOS UI or SAF; app SyncService; sync engine algorithms;
 remote distributed locking; custom conflict resolution; real delete/GC; E2EE;
 block-level delta; rclone fork; fixing rclone upstream bugs.
 
 [rclone]: https://rclone.org/
-## 8. Repository name
+## 12. Repository name
 
 The repository is developed as `rclone-aliyunenterprise` (see P6.3 rename);
 the local checkout directory name may differ (a `rclone-aliyunenterprise ->

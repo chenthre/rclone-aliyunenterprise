@@ -1,0 +1,30 @@
+name: Provider / API issue
+description: Aliyun API behavior changes, permissions, Search/List semantics
+labels: [provider]
+body:
+  - type: markdown
+    attributes:
+      value: "## Aliyun Drive Enterprise API issue"
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What changed / what are you seeing
+      description: e.g. sub-directory list now returns items, new 403 code, search delayed longer
+    validations:
+      required: true
+  - type: textarea
+    id: payload
+    attributes:
+      label: Sanitized API payload
+      description: error code/message, HTTP status, timing (no API keys, no signed URLs)
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - correctness (listing/delete risk)
+        - performance
+        - usability
+        - permission
+    validations:
+      required: true

@@ -22,10 +22,10 @@ import (
 //   - schema version + provider/drive identity
 //   - corruption detection: reject wrong/unknown catalogs (fail closed)
 type Catalog struct {
-	mu    sync.Mutex
-	path  string
-	dirs  map[string][]FileMeta
-	id    identity
+	mu      sync.Mutex
+	path    string
+	dirs    map[string][]FileMeta
+	id      identity
 	loadErr error // non-nil when the catalog was unreadable (corrupt)
 }
 
@@ -37,9 +37,9 @@ type identity struct {
 }
 
 type catalogFile struct {
-	Version int                    `json:"version"`
+	Version  int                   `json:"version"`
 	Identity identity              `json:"identity"`
-	Dirs    map[string][]FileMeta `json:"dirs"`
+	Dirs     map[string][]FileMeta `json:"dirs"`
 }
 
 const catalogSchemaVersion = 2

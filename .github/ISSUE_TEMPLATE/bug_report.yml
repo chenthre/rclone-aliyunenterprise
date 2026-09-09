@@ -1,0 +1,44 @@
+name: Bug report
+description: Backend contract violation or incorrect behavior
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "## Backend bug (not rclone-upstream, not provider limitation)"
+  - type: input
+    id: version
+    attributes:
+      label: Backend version / commit
+      description: rclone pin (v1.75.1) + backend commit or tag
+    validations:
+      required: true
+  - type: input
+    id: go
+    attributes:
+      label: Go version
+      description: if building from source
+  - type: textarea
+    id: command
+    attributes:
+      label: Command line
+      description: exact rclone command used (sanitized)
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Sanitized debug log
+      description: "`-vv` output with API keys and signed URLs removed"
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior vs actual
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I confirm that no API key or full signed URL appears in this issue
+          required: true

@@ -1,0 +1,25 @@
+name: Feature request
+description: New backend capability or usability improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: What capability would you like?
+      description: Must be an rclone Backend capability (not sync/bisync/app orchestration)
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - rclone Backend capability (Fs/Object/option)
+        - rclone sync/bisync algorithm (=> rclone upstream)
+        - App / UI / orchestration (out of scope here)
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Use case

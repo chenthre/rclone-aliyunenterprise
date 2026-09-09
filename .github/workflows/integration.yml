@@ -1,0 +1,56 @@
+name: integration
+
+# Live Aliyun Drive Enterprise contract/integration tests.
+#
+# NEVER runs on pull requests from forks (secrets are required). Run manually
+# via workflow_dispatch, or on main/release branches (push) / on schedule.
+#
+# Required repository secrets:
+#   ALIYUN_ENTERPRISE_API_KEY
+#   ALIYUN_ENTERPRISE_DOMAIN_ID
+#   ALIYUN_ENTERPRISE_DRIVE_ID
+#
+# The test data is isolated under a random rclone-test-* prefix and moved to
+# the provider-private trash on cleanup (no real delete is attempted).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'release/*']
+  schedule:
+    - cron: '17 3 * * 1' # weekly
+
+permissions:
+  contents: read
+
+jobs:
+  live-contract:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == github.event.pull_request.head.repo.owner.login || github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: rclone-aliyunenterprise/go.mod
+          cache-dependency-path: rclone-aliyunenterprise/go.sum
+
+      - name: quick integration smoke (isolated prefix)
+        working-directory: rclone-aliyunenterprise
+        env:
+          ALIYUN_ENTERPRISE_API_KEY: ${{ secrets.ALIYUN_ENTERPRISE_API_KEY }}
+          ALIYUN_ENTERPRISE_DOMAIN_ID: ${{ secrets.ALIYUN_ENTERPRISE_DOMAIN_ID }}
+          ALIYUN_ENTERPRISE_DRIVE_ID: ${{ secrets.ALIYUN_ENTERPRISE_DRIVE_ID }}
+        run: |
+          go test -tags integration -v -run 'TestIntegration' -timeout 10m ./backend/aliyunenterprise/
+
+      - name: full fstest contract suite
+        working-directory: rclone-aliyunenterprise
+        env:
+          ALIYUN_ENTERPRISE_API_KEY: ${{ secrets.ALIYUN_ENTERPRISE_API_KEY }}
+          ALIYUN_ENTERPRISE_DOMAIN_ID: ${{ secrets.ALIYUN_ENTERPRISE_DOMAIN_ID }}
+          ALIYUN_ENTERPRISE_DRIVE_ID: ${{ secrets.ALIYUN_ENTERPRISE_DRIVE_ID }}
+          RCLONE_ALIYUNENTERPRISE_CATALOG_PATH: /tmp/ci-catalog/catalog.json
+          RCLONE_CONFIG: /tmp/ci-catalog/rclone.conf
+        run: |
+          go test -tags integration -v -run 'TestContract/FsMkdir' -timeout 40m -args -verbose ./backend/aliyunenterprise/

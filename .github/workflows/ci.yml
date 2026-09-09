@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: rclone-aliyunenterprise/go.mod
+          cache-dependency-path: rclone-aliyunenterprise/go.sum
+
+      - name: gofmt check
+        working-directory: rclone-aliyunenterprise
+        run: |
+          unformatted=$(gofmt -l backend cmd)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: go vet
+        working-directory: rclone-aliyunenterprise
+        run: go vet ./...
+
+      - name: unit tests (+ race)
+        working-directory: rclone-aliyunenterprise
+        run: go test -race -timeout 10m ./...
+
+      - name: go mod tidy check
+        working-directory: rclone-aliyunenterprise
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum || {
+            echo "go.mod/go.sum not tidy — run 'go mod tidy' and commit the result"; exit 1
+          }
+
+      - name: integration test build check (no keys required)
+        working-directory: rclone-aliyunenterprise
+        run: go vet -tags integration ./... && go test -tags integration -run 'TestNothing' ./...
