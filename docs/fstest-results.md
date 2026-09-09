@@ -70,8 +70,13 @@ random `rclone-test-*` sub-directory per run.)
    (verified: `bytes=81-…` returns full body). Range/Seek are sliced
    client-side; documented in provider-quirks.md.
 
-## Remaining known limitations
+## Status: v0.1.0-rc1 release gate (2026-09-09, P7)
 
-- None in the FsMkdir suite. (P7.1: the `encoding` option maps `/` and `\` and
-  other provider-unfriendly characters to safe physical names through the
-  standard rclone encoder; round-trip is verified by the suite.)
+- **FsMkdir suite: all PASS/SKIP, zero FAIL** (P7.1 encoding closed the last
+  gap; names with `/` `\` round-trip via the standard rclone encoder).
+- **Catalog multi-process safety proven** (P7.2): flock + reload-then-delta;
+  real two-OS-process test keeps both writers' objects; fails without the lock.
+- **Bisync regression (gate)**: A→B create, B→A modify, delete propagation
+  (both local ends converge; object moved to hidden trash), nested dirs,
+  encoding-safe names — PASS. Note: `--max-delete <n>` is a **percentage**
+  (rclone safety), tune it for small vaults (e.g. 80).

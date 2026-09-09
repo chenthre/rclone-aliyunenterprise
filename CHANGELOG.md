@@ -34,6 +34,10 @@ this project adheres to [Semantic Versioning](https://semver.org/).
   two independent rclone processes sharing one catalog no longer lose known
   objects (lost update) — P7.2, regression test included.
 
+### Changed
+- fstest status: FsMkdir suite fully green (P7.1/P7.3 gate).
+- `--max-delete` documented as a percentage (rclone safety) in docs/safety.md.
+
 ### Security
 - Move/Copy returned sparse metadata (PDS responses) — refreshed via
   `file/get`; this fixed bisync `missing info for "...conflict2"`.
@@ -43,6 +47,10 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 - Fs contract fixes from fstest: `List` missing dir → `ErrorDirNotFound`;
   `Object.String()` bare remote + nil-safe; NewObject path convention;
   `Hash()` authoritative local SHA-1; `Precision()` → `fs.ModTimeNotSupported`.
+
+### Changed
+- fstest status: FsMkdir suite fully green (P7.1/P7.3 gate).
+- `--max-delete` documented as a percentage (rclone safety) in docs/safety.md.
 
 ### Security
 - API keys and signed URLs are never logged or committed; `.env` git-ignored.
