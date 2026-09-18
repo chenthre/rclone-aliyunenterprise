@@ -69,6 +69,13 @@ this project adheres to [Semantic Versioning](https://semver.org/).
 - catalog corruption and wrong-drive catalog are rejected (fail closed).
 
 ### Known issues
+- `rclone backend list` shows "no overview data found" for this out-of-tree
+  backend (rclone embeds backend YAML at build time); `help backends` verifies
+  registration, all data commands unaffected.
+- Release assets: linux arm64 + amd64 (v0.1.0-rc2), SHA-256 pinned in the
+  release notes.
+
+### Known issues
 - Aliyun rejects `/` and `\` in file/dir names (`400 InvalidParameter.Name`).
 - Physical delete is unavailable to API keys; deleted objects stay in the
   hidden trash and keep consuming storage (manual GC).

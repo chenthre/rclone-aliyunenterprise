@@ -150,6 +150,10 @@ Honestly *not* declared (rclone falls back / refuses):
 
 - `bisync` conflict rename bug (`missing info for "...conflict2"`) — see
   [docs/upstream-issues.md](docs/upstream-issues.md).
+- `rclone backend list` reports "internal error: no overview data found" for
+  this backend (rclone embeds backend docs at build time; out-of-tree backends
+  cannot supply one). Registered and fully functional otherwise; see
+  [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## 10. Repository layout
 

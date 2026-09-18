@@ -80,3 +80,17 @@ aliyunenterprise: catalog unreadable / catalog belongs to ...
 - Classify: backend bug (here), provider limitation (here, provider template),
   rclone upstream (rclone issue).
 - Never paste keys or full signed URLs.
+## `backend list` shows "internal error: no overview data found"
+
+rclone v1.75.1 reads backend YAML metadata from its own compile-time embedded
+docs (`//go:embed docs/data/backends/*.yaml`); out-of-tree backends cannot
+supply that file, so `rclone backend list` may exit non-zero for the
+`aliyunenterprise` entry only. This is cosmetic/registry-level:
+
+- `rclone help backends` lists `aliyunenterprise` (exit 0) — use it to verify
+  registration.
+- `rclone help backend aliyunenterprise` works (shows all options).
+- All data-path commands (`lsf/copy/sync/bisync/moveto/deletefile`, the
+  command-level gate) are unaffected.
+- There is no out-of-tree fix without forking rclone (against project
+  policy); upstream would need to ship an `aliyunenterprise.yaml`.

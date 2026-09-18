@@ -14,3 +14,4 @@ catalog.json
 
 # ---- third-party archives (keep source URL in README) ----
 vendor/
+release/
